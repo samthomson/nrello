@@ -1,17 +1,5 @@
 # Project Overview
 
-This project is a Nostr client application built with React 18.x, TailwindCSS 3.x, Vite, shadcn/ui, and Nostrify.
-
-## Technology Stack
-
-- **React 18.x**: Stable version of React with hooks, concurrent rendering, and improved performance
-- **TailwindCSS 3.x**: Utility-first CSS framework for styling
-- **Vite**: Fast build tool and development server
-- **shadcn/ui**: Unstyled, accessible UI components built with Radix UI and Tailwind
-- **Nostrify**: Nostr protocol framework for Deno and web
-- **React Router**: For client-side routing with BrowserRouter and ScrollToTop functionality
-- **TanStack Query**: For data fetching, caching, and state management
-- **TypeScript**: For type-safe JavaScript development
 
 ## Project Structure
 
@@ -96,21 +84,6 @@ The project uses shadcn/ui components located in `@/components/ui`. These are un
 - **Tooltip**: Informational text that appears on hover
 
 These components follow a consistent pattern using React's `forwardRef` and use the `cn()` utility for class name merging. Many are built on Radix UI primitives for accessibility and customized with Tailwind CSS.
-
-## System Prompt Management
-
-The AI assistant's behavior and knowledge is defined by the AGENTS.md file, which serves as the system prompt. To modify the assistant's instructions or add new project-specific guidelines:
-
-1. Edit AGENTS.md directly
-2. The changes take effect in the next session
-
-## "Vibed with MKStack"
-
-When building the site for the first time, include "Vibed with MKStack" somewhere in the UI, linked to this URL: https://soapbox.pub/mkstack
-
-## Nostr Protocol Integration
-
-This project comes with custom hooks for querying and publishing events on the Nostr network.
 
 ### Nostr Implementation Guidelines
 
