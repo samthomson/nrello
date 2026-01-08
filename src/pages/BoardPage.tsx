@@ -516,9 +516,288 @@ const BoardPage = () => {
     }
   }, [boardComments]);
 
+  // Real-time event handlers
+  const handleBoardUpdate = (event: NostrEvent) => {
+    console.log('Board updated:', event);
+
+    // Parse board tags
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
+    const visibilityTag = event.tags.find((tag) => tag[0] === 'visibility');
+
+    // Parse layout from tags
+    const layout = tagsToLayout(event.tags);
+
+    // Update board data in cache
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      if (!oldBoard) return oldBoard;
+
+      const updatedBoard = {
+        ...oldBoard,
+        name: titleTag?.[1] || oldBoard.name,
+        description: descriptionTag?.[1] || oldBoard.description,
+        isPublic: visibilityTag?.[1] === 'public'
+      };
+
+      // Update layout if present
+      if (layout.length > 0) {
+        setBoardLayout(layout);
+      }
+
+      return updatedBoard;
+    });
+  };
+
+  const handleListUpdate = (event: NostrEvent) => {
+    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
+
+    console.log('📋 HANDLING LIST UPDATE:', {
+      id: event.id,
+      dTag,
+      title: titleTag?.[1],
+      aTag,
+      belongsToThisBoard: boardId && aTag?.includes(boardId)
+    });
+
+    if (!dTag || !boardId) {
+      console.warn('List event missing d tag or boardId');
+      return;
+    }
+
+    // Only process lists that belong to this board
+    if (!aTag || !aTag.includes(boardId)) {
+      console.log('List does not belong to this board, ignoring');
+      return;
+    }
+
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      if (!oldBoard) return oldBoard;
+
+      const existingListIndex = oldBoard.lists.findIndex((list) => list.dTag === dTag);
+
+      if (existingListIndex >= 0) {
+        // Update existing list
+        const updatedLists = [...oldBoard.lists];
+        updatedLists[existingListIndex] = {
+          ...updatedLists[existingListIndex],
+          id: event.id,
+          title: titleTag?.[1] || updatedLists[existingListIndex].title
+        };
+
+        return {
+          ...oldBoard,
+          lists: updatedLists
+        };
+      } else {
+        // Add new list
+        const newList = {
+          id: event.id,
+          dTag,
+          title: titleTag?.[1] || 'Untitled List',
+          cards: [],
+          boardId: boardId
+        };
+
+        // Add to layout if not present
+        setBoardLayout(prev => {
+          const existsInLayout = prev.some(item => item.listId === dTag);
+          if (!existsInLayout) {
+            return [...prev, { listId: dTag, cardIds: [] }];
+          }
+          return prev;
+        });
+
+        return {
+          ...oldBoard,
+          lists: [...oldBoard.lists, newList]
+        };
+      }
+    });
+  };
+
+  const handleCardUpdate = (event: NostrEvent) => {
+    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+    const listTag = event.tags.find((tag) => tag[0] === 'list');
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const archivedTag = event.tags.find((tag) => tag[0] === 'archived');
+    const deletedTag = event.tags.find((tag) => tag[0] === 'deleted');
+    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
+
+    console.log('🃏 HANDLING CARD UPDATE:', {
+      id: event.id,
+      dTag,
+      title: titleTag?.[1],
+      list: listTag?.[1],
+      aTag,
+      archived: archivedTag?.[1],
+      deleted: deletedTag?.[1],
+      belongsToThisBoard: aTag?.includes(boardId)
+    });
+
+    if (!dTag || !listTag) {
+      console.warn('Card event missing required tags');
+      return;
+    }
+
+    // Only process cards that belong to this board
+    if (!aTag || !aTag.includes(boardId)) {
+      console.log('Card does not belong to this board, ignoring');
+      return;
+    }
+
+    const listDTag = listTag[1];
+    const assigneeTags = event.tags.filter((tag) => tag[0] === 'p');
+    const assignees = assigneeTags.map((tag) => tag[1]);
+    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
+
+    // Get description from tag
+    const description = descriptionTag?.[1] || '';
+
+    const cardItem = {
+      id: event.id,
+      dTag,
+      title: titleTag?.[1] || 'Untitled Card',
+      description,
+      assignees,
+      listId: listDTag,
+      archived: archivedTag?.[1] === 'true',
+      deleted: deletedTag?.[1] === 'true',
+      createdAt: event.created_at,
+      updatedAt: event.created_at
+    };
+
+    // Handle archived/deleted cards
+    if (deletedTag?.[1] === 'true') {
+      setDeletedCards(prev => {
+        const filtered = prev.filter(c => c.dTag !== dTag);
+        return [cardItem, ...filtered].slice(0, 20);
+      });
+
+      // Remove from board
+      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        if (!oldBoard) return oldBoard;
+        return {
+          ...oldBoard,
+          lists: oldBoard.lists.map((list) => ({
+            ...list,
+            cards: list.cards.filter((c) => c.dTag !== dTag)
+          }))
+        };
+      });
+
+      // Remove from layout
+      setBoardLayout(prev => prev.map(item => ({
+        ...item,
+        cardIds: item.cardIds.filter(id => id !== dTag)
+      })));
+
+      return;
+    }
+
+    if (archivedTag?.[1] === 'true') {
+      setArchivedCards(prev => {
+        const filtered = prev.filter(c => c.dTag !== dTag);
+        return [cardItem, ...filtered].slice(0, 20);
+      });
+
+      // Remove from board
+      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        if (!oldBoard) return oldBoard;
+        return {
+          ...oldBoard,
+          lists: oldBoard.lists.map((list) => ({
+            ...list,
+            cards: list.cards.filter((c) => c.dTag !== dTag)
+          }))
+        };
+      });
+
+      // Remove from layout
+      setBoardLayout(prev => prev.map(item => ({
+        ...item,
+        cardIds: item.cardIds.filter(id => id !== dTag)
+      })));
+
+      return;
+    }
+
+    // Handle active cards
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      if (!oldBoard) return oldBoard;
+
+      const updatedLists = oldBoard.lists.map((list) => {
+        if (list.dTag === listDTag) {
+          const existingCardIndex = list.cards.findIndex((c) => c.dTag === dTag);
+
+          if (existingCardIndex >= 0) {
+            // Update existing card
+            const updatedCards = [...list.cards];
+            updatedCards[existingCardIndex] = cardItem;
+            return {
+              ...list,
+              cards: updatedCards
+            };
+          } else {
+            // Add new card
+            const updatedCards = [...list.cards, cardItem];
+
+            // Add to layout if not present
+            setBoardLayout(prev => prev.map(item => {
+              if (item.listId === listDTag) {
+                const cardExists = item.cardIds.includes(dTag);
+                if (!cardExists) {
+                  return {
+                    ...item,
+                    cardIds: [...item.cardIds, dTag]
+                  };
+                }
+              }
+              return item;
+            }));
+
+            return {
+              ...list,
+              cards: updatedCards
+            };
+          }
+        }
+
+        // Remove card from other lists if it moved
+        return {
+          ...list,
+          cards: list.cards.filter((c) => c.dTag !== dTag)
+        };
+      });
+
+      return {
+        ...oldBoard,
+        lists: updatedLists
+      };
+    });
+  };
+
+  const handleCommentUpdate = (event: NostrEvent) => {
+    console.log('Comment updated:', event);
+
+    // Refresh board comments for activity panel
+    queryClient.invalidateQueries({ queryKey: ['board-comments', boardId] });
+
+    // If this comment is for the currently selected card, refresh card comments
+    if (selectedCard) {
+      const cardId = event.tags.find((tag) => tag[0] === 'e')?.[1];
+      if (cardId === selectedCard.card.id) {
+        queryClient.invalidateQueries({ queryKey: ['card-comments', selectedCard.card.id] });
+      }
+    }
+  };
+
   // Real-time subscription system - subscribe to all relevant data
   useEffect(() => {
     if (!user || !boardId) return;
+
+    const abortController = new AbortController();
 
     console.log('🔌 Setting up comprehensive real-time subscription for board:', boardId);
 
@@ -547,66 +826,74 @@ const BoardPage = () => {
 
     console.log('📋 Subscription filters:', JSON.stringify(subscriptionFilters, null, 2));
 
-    // Create subscription
-    const _subscription = nostr.req(subscriptionFilters, {
-      onevent: (event) => {
-        console.log('🔥 REAL-TIME EVENT RECEIVED:', {
-          kind: event.kind,
-          id: event.id,
-          pubkey: event.pubkey,
-          created_at: event.created_at,
-          tags: event.tags.map(t => `${t[0]}:${t[1]}`),
-          content_preview: event.content.slice(0, 50)
-        });
-
-        // Handle different event types
-        const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
-        const belongsToBoard = aTag && aTag.includes(boardId);
-
-        switch (event.kind) {
-          case 36173:
-            handleBoardUpdate(event);
-            break;
-          case 36174:
-            if (belongsToBoard) {
-              handleListUpdate(event);
-            }
-            break;
-          case 36175:
-            if (belongsToBoard) {
-              handleCardUpdate(event);
-            }
-            break;
-          case 1111:
-            if (belongsToBoard) {
-              handleCommentUpdate(event);
-            }
-            break;
-          default:
-            console.log('Unhandled event kind:', event.kind);
-        }
-      },
-      oneose: () => {
-        console.log('✅ Real-time subscription established for board:', boardId);
+    const runSubscription = async () => {
+      try {
         setIsSubscribed(true);
         setSubscriptionError(null);
-      },
-      onError: (error) => {
-        console.error('❌ Subscription error:', error);
-        setIsSubscribed(false);
-        setSubscriptionError(error.message || 'Subscription failed');
+
+        for await (const msg of nostr.req(subscriptionFilters, { signal: abortController.signal })) {
+          if (msg[0] === 'EVENT') {
+            const event = msg[2];
+            console.log('🔥 REAL-TIME EVENT RECEIVED:', {
+              kind: event.kind,
+              id: event.id,
+              pubkey: event.pubkey,
+              created_at: event.created_at,
+              tags: event.tags.map(t => `${t[0]}:${t[1]}`),
+              content_preview: event.content.slice(0, 50)
+            });
+
+            // Handle different event types
+            const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
+            const belongsToBoard = aTag && aTag.includes(boardId);
+
+            switch (event.kind) {
+              case 36173:
+                handleBoardUpdate(event);
+                break;
+              case 36174:
+                if (belongsToBoard) {
+                  handleListUpdate(event);
+                }
+                break;
+              case 36175:
+                if (belongsToBoard) {
+                  handleCardUpdate(event);
+                }
+                break;
+              case 1111:
+                if (belongsToBoard) {
+                  handleCommentUpdate(event);
+                }
+                break;
+              default:
+                console.log('Unhandled event kind:', event.kind);
+            }
+          } else if (msg[0] === 'EOSE') {
+            console.log('✅ Real-time subscription established for board:', boardId);
+          }
+        }
+      } catch (error) {
+        if (!abortController.signal.aborted) {
+          console.error('❌ Subscription error:', error);
+          setIsSubscribed(false);
+          setSubscriptionError(error instanceof Error ? error.message : 'Subscription failed');
+        }
       }
-    });
+    };
+
+    runSubscription();
 
     // Cleanup subscription on unmount
     return () => {
       console.log('🧹 Cleaning up real-time subscription for board:', boardId);
+      abortController.abort();
       setIsSubscribed(false);
       setSubscriptionError(null);
       // Note: nostrify subscriptions don't have a close method
       // The subscription will be automatically cleaned up when the component unmounts
     };
-  }, [user?.pubkey, boardId, currentOrganization]);
+  }, [user?.pubkey, boardId, currentOrganization, nostr, queryClient]);
 
   useSeoMeta({
     title: board ? "'" + board.name + "' board - nrello" : 'loading board...',
@@ -1417,281 +1704,6 @@ const BoardPage = () => {
     }
   };
 
-  const handleBoardUpdate = (event: NostrEvent) => {
-    console.log('Board updated:', event);
-
-    // Parse board tags
-    const titleTag = event.tags.find((tag) => tag[0] === 'title');
-    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
-    const visibilityTag = event.tags.find((tag) => tag[0] === 'visibility');
-
-    // Parse layout from tags
-    const layout = tagsToLayout(event.tags);
-
-    // Update board data in cache
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
-      if (!oldBoard) return oldBoard;
-
-      const updatedBoard = {
-        ...oldBoard,
-        name: titleTag?.[1] || oldBoard.name,
-        description: descriptionTag?.[1] || oldBoard.description,
-        isPublic: visibilityTag?.[1] === 'public'
-      };
-
-      // Update layout if present
-      if (layout.length > 0) {
-        setBoardLayout(layout);
-      }
-
-      return updatedBoard;
-    });
-  };
-
-  const handleListUpdate = (event: NostrEvent) => {
-    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
-    const titleTag = event.tags.find((tag) => tag[0] === 'title');
-    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
-
-    console.log('📋 HANDLING LIST UPDATE:', {
-      id: event.id,
-      dTag,
-      title: titleTag?.[1],
-      aTag,
-      belongsToThisBoard: boardId && aTag?.includes(boardId)
-    });
-
-    if (!dTag || !boardId) {
-      console.warn('List event missing d tag or boardId');
-      return;
-    }
-
-    // Only process lists that belong to this board
-    if (!aTag || !aTag.includes(boardId)) {
-      console.log('List does not belong to this board, ignoring');
-      return;
-    }
-
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
-      if (!oldBoard) return oldBoard;
-
-      const existingListIndex = oldBoard.lists.findIndex((list) => list.dTag === dTag);
-
-      if (existingListIndex >= 0) {
-        // Update existing list
-        const updatedLists = [...oldBoard.lists];
-        updatedLists[existingListIndex] = {
-          ...updatedLists[existingListIndex],
-          id: event.id,
-          title: titleTag?.[1] || updatedLists[existingListIndex].title
-        };
-
-        return {
-          ...oldBoard,
-          lists: updatedLists
-        };
-      } else {
-        // Add new list
-        const newList = {
-          id: event.id,
-          dTag,
-          title: titleTag?.[1] || 'Untitled List',
-          cards: [],
-          boardId: boardId
-        };
-
-        // Add to layout if not present
-        setBoardLayout(prev => {
-          const existsInLayout = prev.some(item => item.listId === dTag);
-          if (!existsInLayout) {
-            return [...prev, { listId: dTag, cardIds: [] }];
-          }
-          return prev;
-        });
-
-        return {
-          ...oldBoard,
-          lists: [...oldBoard.lists, newList]
-        };
-      }
-    });
-  };
-
-  const handleCardUpdate = (event: NostrEvent) => {
-    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
-    const listTag = event.tags.find((tag) => tag[0] === 'list');
-    const titleTag = event.tags.find((tag) => tag[0] === 'title');
-    const archivedTag = event.tags.find((tag) => tag[0] === 'archived');
-    const deletedTag = event.tags.find((tag) => tag[0] === 'deleted');
-    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
-
-    console.log('🃏 HANDLING CARD UPDATE:', {
-      id: event.id,
-      dTag,
-      title: titleTag?.[1],
-      list: listTag?.[1],
-      aTag,
-      archived: archivedTag?.[1],
-      deleted: deletedTag?.[1],
-      belongsToThisBoard: aTag?.includes(boardId)
-    });
-
-    if (!dTag || !listTag) {
-      console.warn('Card event missing required tags');
-      return;
-    }
-
-    // Only process cards that belong to this board
-    if (!aTag || !aTag.includes(boardId)) {
-      console.log('Card does not belong to this board, ignoring');
-      return;
-    }
-
-    const listDTag = listTag[1];
-    const assigneeTags = event.tags.filter((tag) => tag[0] === 'p');
-    const assignees = assigneeTags.map((tag) => tag[1]);
-    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
-
-    // Get description from tag
-    const description = descriptionTag?.[1] || '';
-
-    const cardItem = {
-      id: event.id,
-      dTag,
-      title: titleTag?.[1] || 'Untitled Card',
-      description,
-      assignees,
-      listId: listDTag,
-      archived: archivedTag?.[1] === 'true',
-      deleted: deletedTag?.[1] === 'true',
-      createdAt: event.created_at,
-      updatedAt: event.created_at
-    };
-
-    // Handle archived/deleted cards
-    if (deletedTag?.[1] === 'true') {
-      setDeletedCards(prev => {
-        const filtered = prev.filter(c => c.dTag !== dTag);
-        return [cardItem, ...filtered].slice(0, 20);
-      });
-
-      // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
-        if (!oldBoard) return oldBoard;
-        return {
-          ...oldBoard,
-          lists: oldBoard.lists.map((list) => ({
-            ...list,
-            cards: list.cards.filter((c) => c.dTag !== dTag)
-          }))
-        };
-      });
-
-      // Remove from layout
-      setBoardLayout(prev => prev.map(item => ({
-        ...item,
-        cardIds: item.cardIds.filter(id => id !== dTag)
-      })));
-
-      return;
-    }
-
-    if (archivedTag?.[1] === 'true') {
-      setArchivedCards(prev => {
-        const filtered = prev.filter(c => c.dTag !== dTag);
-        return [cardItem, ...filtered].slice(0, 20);
-      });
-
-      // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
-        if (!oldBoard) return oldBoard;
-        return {
-          ...oldBoard,
-          lists: oldBoard.lists.map((list) => ({
-            ...list,
-            cards: list.cards.filter((c) => c.dTag !== dTag)
-          }))
-        };
-      });
-
-      // Remove from layout
-      setBoardLayout(prev => prev.map(item => ({
-        ...item,
-        cardIds: item.cardIds.filter(id => id !== dTag)
-      })));
-
-      return;
-    }
-
-    // Handle active cards
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
-      if (!oldBoard) return oldBoard;
-
-      const updatedLists = oldBoard.lists.map((list) => {
-        if (list.dTag === listDTag) {
-          const existingCardIndex = list.cards.findIndex((c) => c.dTag === dTag);
-
-          if (existingCardIndex >= 0) {
-            // Update existing card
-            const updatedCards = [...list.cards];
-            updatedCards[existingCardIndex] = cardItem;
-            return {
-              ...list,
-              cards: updatedCards
-            };
-          } else {
-            // Add new card
-            const updatedCards = [...list.cards, cardItem];
-
-            // Add to layout if not present
-            setBoardLayout(prev => prev.map(item => {
-              if (item.listId === listDTag) {
-                const cardExists = item.cardIds.includes(dTag);
-                if (!cardExists) {
-                  return {
-                    ...item,
-                    cardIds: [...item.cardIds, dTag]
-                  };
-                }
-              }
-              return item;
-            }));
-
-            return {
-              ...list,
-              cards: updatedCards
-            };
-          }
-        }
-
-        // Remove card from other lists if it moved
-        return {
-          ...list,
-          cards: list.cards.filter((c) => c.dTag !== dTag)
-        };
-      });
-
-      return {
-        ...oldBoard,
-        lists: updatedLists
-      };
-    });
-  };
-
-  const handleCommentUpdate = (event: NostrEvent) => {
-    console.log('Comment updated:', event);
-
-    // Refresh board comments for activity panel
-    queryClient.invalidateQueries({ queryKey: ['board-comments', boardId] });
-
-    // If this comment is for the currently selected card, refresh card comments
-    if (selectedCard) {
-      const cardId = event.tags.find((tag) => tag[0] === 'e')?.[1];
-      if (cardId === selectedCard.card.id) {
-        queryClient.invalidateQueries({ queryKey: ['card-comments', selectedCard.card.id] });
-      }
-    }
-  };
 
   const handleAddComment = () => {
     if (!newComment.trim() || !selectedCard || !user || !boardId) return;
