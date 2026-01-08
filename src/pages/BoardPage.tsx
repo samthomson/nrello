@@ -12,20 +12,13 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import {
   Plus,
-  MoreHorizontal,
-  User,
-  Lock,
   Users,
   Archive,
   Trash2,
-  ListPlus,
-  ListCollapse,
   Clock,
   ChevronRight,
   ChevronLeft,
@@ -86,6 +79,22 @@ type BoardLayout = Array<{
   listId: string;
   cardIds: string[];
 }>;
+
+// Helper: Convert layout to tags format
+// Each layout tag: ['layout', listId, cardId1, cardId2, ...]
+const layoutToTags = (layout: BoardLayout): string[][] => {
+  return layout.map(item => ['layout', item.listId, ...item.cardIds]);
+};
+
+// Helper: Parse layout from tags
+const tagsToLayout = (tags: string[][]): BoardLayout => {
+  return tags
+    .filter(tag => tag[0] === 'layout')
+    .map(tag => ({
+      listId: tag[1],
+      cardIds: tag.slice(2)
+    }));
+};
 
 const BoardPage = () => {
   const { boardId } = useParams();
@@ -278,16 +287,8 @@ const BoardPage = () => {
         const descriptionTag = boardEvent.tags.find(tag => tag[0] === 'description');
         const visibilityTag = boardEvent.tags.find(tag => tag[0] === 'visibility');
 
-        // Parse board layout from content
-        let layout: BoardLayout = [];
-        try {
-          const content = JSON.parse(boardEvent.content);
-          if (content.layout && Array.isArray(content.layout)) {
-            layout = content.layout;
-          }
-        } catch (e) {
-          console.warn('Failed to parse board layout', e);
-        }
+        // Parse board layout from tags
+        let layout: BoardLayout = tagsToLayout(boardEvent.tags);
 
         const boardData: Board = {
           id: boardEvent.id,
@@ -351,28 +352,14 @@ const BoardPage = () => {
           const dTag = event.tags.find(tag => tag[0] === 'd')?.[1] || event.id;
           const listTag = event.tags.find(tag => tag[0] === 'list');
           const titleTag = event.tags.find(tag => tag[0] === 'title');
+          const descriptionTag = event.tags.find(tag => tag[0] === 'description');
           const archivedTag = event.tags.find(tag => tag[0] === 'archived');
           const deletedTag = event.tags.find(tag => tag[0] === 'deleted');
 
-          // Parse timestamps from content if it's JSON
-          let createdAt = event.created_at;
-          let updatedAt = event.created_at;
-          let description = event.content || '';
-
-          try {
-            const content = JSON.parse(event.content);
-            if (content.description !== undefined) {
-              description = content.description;
-            }
-            if (content.createdAt) {
-              createdAt = content.createdAt;
-            }
-            if (content.updatedAt) {
-              updatedAt = content.updatedAt;
-            }
-          } catch (e) {
-            // Content is plain text description, not JSON
-          }
+          // Use event.created_at for timestamps, description from tag
+          const createdAt = event.created_at;
+          const updatedAt = event.created_at;
+          const description = descriptionTag?.[1] || '';
 
           // Parse assignees from 'p' tags
           const assigneeTags = event.tags.filter(tag => tag[0] === 'p');
@@ -690,21 +677,16 @@ const BoardPage = () => {
     // Start saving operation
     startSavingOperation();
 
-    const boardContent = {
-      description: board.description,
-      createdAt: Math.floor(Date.now() / 1000),
-      updatedAt: Math.floor(Date.now() / 1000),
-      layout: newLayout
-    };
-
+    // Layout stored in tags, content is empty
     const boardEvent = {
       kind: 36173,
-      content: JSON.stringify(boardContent),
+      content: '',
       tags: [
         ['d', boardId],
         ['title', board.name],
         ['description', board.description],
-        ['visibility', board.isPublic ? 'public' : 'private']
+        ['visibility', board.isPublic ? 'public' : 'private'],
+        ...layoutToTags(newLayout)
       ]
     };
 
@@ -821,19 +803,16 @@ const BoardPage = () => {
       // Start saving operation
       startSavingOperation();
 
-      // Now publish the event
+      // Now publish the event (empty content, description in tag)
       const cardEvent = {
         kind: 36175,
-        content: JSON.stringify({
-          description: '',
-          createdAt: now,
-          updatedAt: now
-        }),
+        content: '',
         tags: [
           ['d', cardId],
+          ['title', newCardTitle],
+          ['description', ''],
           ['list', listId],
-          ['a', `36173:${user.pubkey}:${boardId}`],
-          ['title', newCardTitle]
+          ['a', `36173:${user.pubkey}:${boardId}`]
         ]
       };
 
@@ -922,21 +901,16 @@ const BoardPage = () => {
   const handleUpdateBoardName = () => {
     if (!board || !user || !boardId) return;
 
-    const boardContent = {
-      description: board.description,
-      createdAt: Math.floor(Date.now() / 1000),
-      updatedAt: Math.floor(Date.now() / 1000),
-      layout: boardLayout
-    };
-
+    // Layout stored in tags, content is empty
     const boardEvent = {
       kind: 36173,
-      content: JSON.stringify(boardContent),
+      content: '',
       tags: [
         ['d', boardId],
         ['title', editedBoardName],
         ['description', board.description],
-        ['visibility', board.isPublic ? 'public' : 'private']
+        ['visibility', board.isPublic ? 'public' : 'private'],
+        ...layoutToTags(boardLayout)
       ]
     };
 
@@ -973,16 +947,13 @@ const BoardPage = () => {
 
       const cardEvent = {
         kind: 36175,
-        content: JSON.stringify({
-          description: selectedCard.card.description || '',
-          createdAt: selectedCard.card.createdAt || Math.floor(Date.now() / 1000),
-          updatedAt: Math.floor(Date.now() / 1000)
-        }),
+        content: '',
         tags: [
           ['d', selectedCard.card.dTag],
+          ['title', editedTitle],
+          ['description', selectedCard.card.description || ''],
           ['list', selectedCard.card.listId],
           ['a', `36173:${user.pubkey}:${boardId}`],
-          ['title', editedTitle],
           ...selectedCard.card.assignees.map(pubkey => ['p', pubkey])
         ]
       };
@@ -1063,16 +1034,13 @@ const BoardPage = () => {
     // 2. Update the card event with deleted flag
     const cardEvent = {
       kind: 36175,
-      content: JSON.stringify({
-        description: card.description,
-        createdAt: card.createdAt || now,
-        updatedAt: now
-      }),
+      content: '',
       tags: [
         ['d', card.dTag],
+        ['title', card.title],
+        ['description', card.description || ''],
         ['list', card.listId],
         ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', card.title],
         ['deleted', 'true']
       ]
     };
@@ -1146,16 +1114,13 @@ const BoardPage = () => {
     // Update the card event to remove archived flag
     const cardEvent = {
       kind: 36175,
-      content: JSON.stringify({
-        description: card.description,
-        createdAt: card.createdAt || now,
-        updatedAt: now
-      }),
+      content: '',
       tags: [
         ['d', card.dTag],
+        ['title', card.title],
+        ['description', card.description || ''],
         ['list', card.listId],
-        ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', card.title]
+        ['a', `36173:${user.pubkey}:${boardId}`]
         // Note: no archived tag = not archived
       ]
     };
@@ -1226,16 +1191,13 @@ const BoardPage = () => {
     // Update the card event with archived flag
     const cardEvent = {
       kind: 36175,
-      content: JSON.stringify({
-        description: card.description,
-        createdAt: card.createdAt || now,
-        updatedAt: now
-      }),
+      content: '',
       tags: [
         ['d', card.dTag],
+        ['title', card.title],
+        ['description', card.description || ''],
         ['list', card.listId],
         ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', card.title],
         ['archived', 'true']
       ]
     };
@@ -1306,16 +1268,13 @@ const BoardPage = () => {
 
     const cardEvent = {
       kind: 36175,
-      content: JSON.stringify({
-        description: selectedCard.card.description || '',
-        createdAt: selectedCard.card.createdAt || Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000)
-      }),
+      content: '',
       tags: [
         ['d', selectedCard.card.dTag],
+        ['title', selectedCard.card.title],
+        ['description', selectedCard.card.description || ''],
         ['list', selectedCard.card.listId],
         ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', selectedCard.card.title],
         ...newAssignees.map(pubkey => ['p', pubkey])
       ]
     };
@@ -1380,16 +1339,13 @@ const BoardPage = () => {
 
     const cardEvent = {
       kind: 36175,
-      content: JSON.stringify({
-        description: editedDescription,
-        createdAt: selectedCard.card.createdAt || Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000)
-      }),
+      content: '',
       tags: [
         ['d', selectedCard.card.dTag],
+        ['title', selectedCard.card.title],
+        ['description', editedDescription],
         ['list', selectedCard.card.listId],
         ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', selectedCard.card.title],
         ...selectedCard.card.assignees.map(pubkey => ['p', pubkey])
       ]
     };
@@ -1463,14 +1419,11 @@ const BoardPage = () => {
 
         const listEvent = {
           kind: 36174,
-          content: JSON.stringify({
-            createdAt: Math.floor(Date.now() / 1000),
-            updatedAt: Math.floor(Date.now() / 1000)
-          }),
+          content: '',
           tags: [
             ['d', listId],
-            ['a', `36173:${boardCreator}:${boardId}`], // Use board creator's pubkey
-            ['title', newListTitle]
+            ['title', newListTitle],
+            ['a', `36173:${boardCreator}:${boardId}`]
           ]
         };
 
@@ -1531,17 +1484,13 @@ const BoardPage = () => {
   const handleBoardUpdate = (event: any) => {
     console.log('Board updated:', event);
 
-    // Parse board content and tags
+    // Parse board tags
     const titleTag = event.tags.find((tag: any) => tag[0] === 'title');
     const descriptionTag = event.tags.find((tag: any) => tag[0] === 'description');
     const visibilityTag = event.tags.find((tag: any) => tag[0] === 'visibility');
 
-    let content = {};
-    try {
-      content = JSON.parse(event.content);
-    } catch (e) {
-      console.warn('Failed to parse board content');
-    }
+    // Parse layout from tags
+    const layout = tagsToLayout(event.tags);
 
     // Update board data in cache
     queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
@@ -1552,12 +1501,12 @@ const BoardPage = () => {
         name: titleTag?.[1] || oldBoard.name,
         description: descriptionTag?.[1] || oldBoard.description,
         isPublic: visibilityTag?.[1] === 'public',
-        updatedAt: content.updatedAt || event.created_at
+        updatedAt: event.created_at
       };
 
       // Update layout if present
-      if (content.layout && Array.isArray(content.layout)) {
-        setBoardLayout(content.layout);
+      if (layout.length > 0) {
+        setBoardLayout(layout);
       }
 
       return updatedBoard;
@@ -1666,17 +1615,10 @@ const BoardPage = () => {
     const listDTag = listTag[1];
     const assigneeTags = event.tags.filter((tag: any) => tag[0] === 'p');
     const assignees = assigneeTags.map((tag: any) => tag[1]);
+    const descriptionTag = event.tags.find((tag: any) => tag[0] === 'description');
 
-    // Parse content for description
-    let description = event.content || '';
-    try {
-      const content = JSON.parse(event.content);
-      if (content.description !== undefined) {
-        description = content.description;
-      }
-    } catch (e) {
-      // Content is plain text description
-    }
+    // Get description from tag
+    const description = descriptionTag?.[1] || '';
 
     const cardItem = {
       id: event.id,
@@ -1916,14 +1858,11 @@ const BoardPage = () => {
 
     const listEvent = {
       kind: 36174,
-      content: JSON.stringify({
-        createdAt: Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000)
-      }),
+      content: '',
       tags: [
         ['d', listDtag],
-        ['a', `36173:${user.pubkey}:${boardId}`],
-        ['title', newTitle]
+        ['title', newTitle],
+        ['a', `36173:${user.pubkey}:${boardId}`]
       ]
     };
 
@@ -2056,16 +1995,13 @@ const BoardPage = () => {
           // Publish updated card event with new list
           const cardEvent = {
             kind: 36175,
-            content: JSON.stringify({
-              description: movedCard.description || '',
-              createdAt: movedCard.createdAt || now,
-              updatedAt: Math.floor(Date.now() / 1000)
-            }),
+            content: '',
             tags: [
               ['d', movedCard.dTag],
+              ['title', movedCard.title],
+              ['description', movedCard.description || ''],
               ['list', destListId], // Updated list
               ['a', `36173:${user.pubkey}:${boardId}`],
-              ['title', movedCard.title],
               ...movedCard.assignees.map(pubkey => ['p', pubkey])
             ]
           };

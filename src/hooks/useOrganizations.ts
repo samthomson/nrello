@@ -11,6 +11,7 @@ export interface Organization {
   createdAt: number;
   updatedAt: number;
   isOwner: boolean;
+  pubkey: string;
 }
 
 export function useOrganizations(startSavingOperation: () => void, completeSavingOperation: () => void) {
@@ -68,22 +69,16 @@ export function useOrganizations(startSavingOperation: () => void, completeSavin
           const nameTag = event.tags.find(tag => tag[0] === 'name');
           const memberTags = event.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
 
-          // Parse content
-          let content = {};
-          try {
-            content = JSON.parse(event.content);
-          } catch (e) {
-            console.warn('Failed to parse organization content', e);
-          }
-
+          // Use event.created_at for timestamps (no JSON content needed)
           return {
             id: event.id,
             dTag: event.tags.find(tag => tag[0] === 'd')?.[1] || event.id,
             name: nameTag?.[1] || 'Untitled Organization',
             members: memberTags,
-            createdAt: content.createdAt || event.created_at,
-            updatedAt: content.updatedAt || event.created_at,
-            isOwner: event.pubkey === user.pubkey, // Track if user is the owner
+            createdAt: event.created_at,
+            updatedAt: event.created_at,
+            isOwner: event.pubkey === user.pubkey,
+            pubkey: event.pubkey,
           };
         });
       } catch (error) {
@@ -114,13 +109,10 @@ export function useOrganizations(startSavingOperation: () => void, completeSavin
       tags.push(['p', member]);
     });
 
-    // Create the organization event
+    // Create the organization event (empty content, use event.created_at for timestamps)
     const orgEvent = {
-      kind: 36963, // Our custom organization kind
-      content: JSON.stringify({
-        createdAt: Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000)
-      }),
+      kind: 36963,
+      content: '',
       tags
     };
 
@@ -162,13 +154,10 @@ export function useOrganizations(startSavingOperation: () => void, completeSavin
       tags.push(['p', member]);
     });
 
-    // Create the updated organization event
+    // Create the updated organization event (empty content, use event.created_at for timestamps)
     const orgEvent = {
-      kind: 36963, // Our custom organization kind
-      content: JSON.stringify({
-        createdAt: Math.floor(Date.now() / 1000),
-        updatedAt: Math.floor(Date.now() / 1000)
-      }),
+      kind: 36963,
+      content: '',
       tags
     };
 

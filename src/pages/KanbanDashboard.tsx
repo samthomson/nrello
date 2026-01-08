@@ -31,10 +31,12 @@ const KanbanDashboard = () => {
   const { user } = useCurrentUser();
   const { mutate: publishEvent } = useNostrPublish();
   const queryClient = useQueryClient();
-  const { currentOrganization, organizations, isSaving, isLoading: isLoadingOrganizations } = useOrganization();
+  const { currentOrganization, organizations, isSaving, isLoading: isLoadingOrganizations, startSavingOperation, completeSavingOperation, createAndSelectOrganization } = useOrganization();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateOrgDialogOpen, setIsCreateOrgDialogOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('');
   const [newBoardDescription, setNewBoardDescription] = useState('');
+  const [newOrgName, setNewOrgName] = useState('');
 
   // Board sorting preference stored in localStorage
   const [sortBy, setSortBy] = useLocalStorage('board-sort-preference', 'updated-desc');
@@ -121,14 +123,6 @@ const KanbanDashboard = () => {
             const visibilityTag = event.tags.find(tag => tag[0] === 'visibility');
             const boardDTag = event.tags.find(tag => tag[0] === 'd')?.[1] || event.id;
 
-            // Parse content
-            let content = {};
-            try {
-              content = JSON.parse(event.content);
-            } catch (e) {
-              console.warn('Failed to parse board content', e);
-            }
-
             // Fetch lists for this board
             const listEvents = await nostr.query([
               {
@@ -177,8 +171,8 @@ const KanbanDashboard = () => {
               name: titleTag?.[1] || 'Untitled Board',
               description: descriptionTag?.[1] || '',
               isPublic: visibilityTag?.[1] === 'public',
-              createdAt: content.createdAt || event.created_at,
-              updatedAt: content.updatedAt || event.created_at,
+              createdAt: event.created_at,
+              updatedAt: event.created_at,
               listCount: listEvents.length,
               cardCount: activeCards.length,
               assignedMembers: uniqueAssignees.size
@@ -257,22 +251,16 @@ const KanbanDashboard = () => {
         const aTag = `36963:${orgOwner}:${currentOrganization}`;
         console.log('Creating board with a-tag (using org owner):', aTag);
 
-      // Create the board event
+      // Create the board event (empty content, no layout tags needed for new board)
       const boardEvent = {
-        kind: 36173, // Our custom board kind
-        content: JSON.stringify({
-          description: newBoardDescription,
-          createdAt: Math.floor(Date.now() / 1000),
-          updatedAt: Math.floor(Date.now() / 1000),
-          layout: [] // Single unified layout structure - no repetition
-        }),
+        kind: 36173,
+        content: '',
         tags: [
           ['d', boardId],
           ['title', newBoardName],
           ['description', newBoardDescription],
-          ['visibility', 'public'], // Default to public for now
-          ['t', 'project'], // Default tag
-          ['a', aTag] // Organization reference
+          ['visibility', 'public'],
+          ['a', aTag]
         ]
       };
 
@@ -439,14 +427,52 @@ const KanbanDashboard = () => {
                 <p className="text-muted-foreground mb-4">
                   Get started by creating your first organization
                 </p>
-                <Button onClick={() => {
-                  // This would typically open the organization creation dialog
-                  // For now, we'll direct them to the organization page
-                  navigate('/organization');
-                }}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Organization
-                </Button>
+                <Dialog open={isCreateOrgDialogOpen} onOpenChange={setIsCreateOrgDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Organization
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Create New Organization</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm font-medium">Organization Name</label>
+                        <Input
+                          placeholder="Enter organization name"
+                          value={newOrgName}
+                          onChange={(e) => setNewOrgName(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsCreateOrgDialogOpen(false);
+                            setNewOrgName('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (newOrgName.trim() && user) {
+                              createAndSelectOrganization(newOrgName.trim());
+                              setIsCreateOrgDialogOpen(false);
+                              setNewOrgName('');
+                            }
+                          }}
+                          disabled={!newOrgName.trim() || !user}
+                        >
+                          Create
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </>
             ) : (
               <>
