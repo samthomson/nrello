@@ -34,9 +34,12 @@
     --muted: 0 0% 96%;
     --muted-foreground: 0 0% 45%;
 
-    /* Orange accent variations */
-    --accent: 14 72% 55%;
-    --accent-foreground: 0 0% 100%;
+    /* Orange accent - using the lighter orange throughout */
+    --accent: 14 72% 77.5%;
+    --accent-foreground: 0 0% 12%;
+    
+    /* Light orange for subtle hover states - slightly lighter than accent */
+    --accent-light: 14 72% 85%;
 
     /* Destructive red-orange */
     --destructive: 0 70% 55%;
@@ -91,9 +94,12 @@
     --muted: 0 0% 25%;
     --muted-foreground: 0 0% 65%;
 
-    /* Orange accent variations */
-    --accent: 14 72% 55%;
+    /* Orange accent - using the lighter orange throughout */
+    --accent: 14 50% 42.5%;
     --accent-foreground: 0 0% 100%;
+    
+    /* Light orange for subtle hover states - slightly lighter than accent */
+    --accent-light: 14 50% 50%;
 
     /* Destructive red-orange */
     --destructive: 0 70% 55%;
