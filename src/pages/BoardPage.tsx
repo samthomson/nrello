@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -33,7 +33,7 @@ import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useOrganization } from '@/contexts/OrganizationContext';
+import { useOrganization } from '@/hooks/useOrganization';
 import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
 import type { Board, CardItem, ListItem, BoardLayout, Comment } from '@/types';
 
@@ -517,7 +517,7 @@ const BoardPage = () => {
   }, [boardComments]);
 
   // Real-time event handlers
-  const handleBoardUpdate = (event: NostrEvent) => {
+  const handleBoardUpdate = useCallback((event: NostrEvent) => {
     console.log('Board updated:', event);
 
     // Parse board tags
@@ -546,9 +546,9 @@ const BoardPage = () => {
 
       return updatedBoard;
     });
-  };
+  }, [boardId, queryClient, setBoardLayout]);
 
-  const handleListUpdate = (event: NostrEvent) => {
+  const handleListUpdate = useCallback((event: NostrEvent) => {
     const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
     const titleTag = event.tags.find((tag) => tag[0] === 'title');
     const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
@@ -615,9 +615,9 @@ const BoardPage = () => {
         };
       }
     });
-  };
+  }, [boardId, queryClient, setBoardLayout]);
 
-  const handleCardUpdate = (event: NostrEvent) => {
+  const handleCardUpdate = useCallback((event: NostrEvent) => {
     const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
     const listTag = event.tags.find((tag) => tag[0] === 'list');
     const titleTag = event.tags.find((tag) => tag[0] === 'title');
@@ -776,9 +776,9 @@ const BoardPage = () => {
         lists: updatedLists
       };
     });
-  };
+  }, [boardId, queryClient, setBoardLayout, setDeletedCards, setArchivedCards]);
 
-  const handleCommentUpdate = (event: NostrEvent) => {
+  const handleCommentUpdate = useCallback((event: NostrEvent) => {
     console.log('Comment updated:', event);
 
     // Refresh board comments for activity panel
@@ -791,7 +791,7 @@ const BoardPage = () => {
         queryClient.invalidateQueries({ queryKey: ['card-comments', selectedCard.card.id] });
       }
     }
-  };
+  }, [boardId, queryClient, selectedCard]);
 
   // Real-time subscription system - subscribe to all relevant data
   useEffect(() => {
@@ -893,7 +893,7 @@ const BoardPage = () => {
       // Note: nostrify subscriptions don't have a close method
       // The subscription will be automatically cleaned up when the component unmounts
     };
-  }, [user?.pubkey, boardId, currentOrganization, nostr, queryClient]);
+  }, [user, boardId, currentOrganization, nostr, queryClient, handleBoardUpdate, handleCardUpdate, handleCommentUpdate, handleListUpdate]);
 
   useSeoMeta({
     title: board ? "'" + board.name + "' board - nrello" : 'loading board...',

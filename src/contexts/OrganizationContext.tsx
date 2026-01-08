@@ -1,9 +1,9 @@
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, ReactNode, useState, useEffect } from 'react';
 import { useOrganizations } from '@/hooks/useOrganizations';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import type { Organization } from '@/types';
 
-interface OrganizationContextType {
+export interface OrganizationContextType {
   currentOrganization: string | null;
   setCurrentOrganization: (orgId: string | null) => void;
   organizations: Organization[];
@@ -18,7 +18,7 @@ interface OrganizationContextType {
   completeSavingOperation: () => void;
 }
 
-const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
+export const OrganizationContext = createContext<OrganizationContextType | undefined>(undefined);
 
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user } = useCurrentUser();
@@ -107,12 +107,4 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
       {children}
     </OrganizationContext.Provider>
   );
-}
-
-export function useOrganization() {
-  const context = useContext(OrganizationContext);
-  if (context === undefined) {
-    throw new Error('useOrganization must be used within an OrganizationProvider');
-  }
-  return context;
 }

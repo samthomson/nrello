@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
-import { useOrganization } from '@/contexts/OrganizationContext';
+import { useOrganization } from '@/hooks/useOrganization';
 import { useTheme } from '@/hooks/useTheme';
 import { useFollows } from '@/hooks/useFollows';
 import { useAuthor } from '@/hooks/useAuthor';

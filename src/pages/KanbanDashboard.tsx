@@ -18,7 +18,7 @@ import { useNostr } from '@nostrify/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
-import { useOrganization } from '@/contexts/OrganizationContext';
+import { useOrganization } from '@/hooks/useOrganization';
 import type { BoardSummary } from '@/types';
 
 const KanbanDashboard = () => {
