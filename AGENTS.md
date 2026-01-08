@@ -679,12 +679,7 @@ There is an important distinction between **writing new tests** and **running ex
 - Existing functionality needs verification
 
 ### Running Tests (Executing the Test Suite)
-**ALWAYS run the test script** after making any code changes. This is mandatory regardless of whether you wrote new tests or not.
-
-- **You must run the test script** to validate your changes
-- **Your task is not complete** until the test script passes without errors
-- **This applies to all changes** - bug fixes, new features, refactoring, or any code modifications
-- **The test script includes** TypeScript compilation, ESLint checks, and existing test validation
+**Only run tests when necessary** - follow the validation guidelines below. Don't run tests for trivial changes.
 
 ### Test Setup
 
