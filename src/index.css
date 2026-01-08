@@ -66,14 +66,14 @@
     --foreground: 0 0% 90%;
 
     /* List columns - slightly lighter than background */
-    --card: 0 0% 18%;
+    --card: 0 0% 17%;
     --card-foreground: 0 0% 90%;
     
     /* Task cards - lighter than list columns for distinction */
     --card-item: 0 0% 20%;
     
-    /* Header background - slightly lighter than main background for distinction */
-    --header-background: 0 0% 17%;
+    /* Header background - brightest for top nav bar (dark mode hierarchy) */
+    --header-background: 0 0% 19%;
 
     /* Popovers match cards */
     --popover: 0 0% 18%;
