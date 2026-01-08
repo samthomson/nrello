@@ -34,56 +34,7 @@
 
 ## UI Components
 
-The project uses shadcn/ui components located in `@/components/ui`. These are unstyled, accessible components built with Radix UI and styled with Tailwind CSS. Available components include:
-
-- **Accordion**: Vertically collapsing content panels
-- **Alert**: Displays important messages to users
-- **AlertDialog**: Modal dialog for critical actions requiring confirmation
-- **AspectRatio**: Maintains consistent width-to-height ratio
-- **Avatar**: User profile pictures with fallback support
-- **Badge**: Small status descriptors for UI elements
-- **Breadcrumb**: Navigation aid showing current location in hierarchy
-- **Button**: Customizable button with multiple variants and sizes
-- **Calendar**: Date picker component
-- **Card**: Container with header, content, and footer sections
-- **Carousel**: Slideshow for cycling through elements
-- **Chart**: Data visualization component
-- **Checkbox**: Selectable input element
-- **Collapsible**: Toggle for showing/hiding content
-- **Command**: Command palette for keyboard-first interfaces
-- **ContextMenu**: Right-click menu component
-- **Dialog**: Modal window overlay
-- **Drawer**: Side-sliding panel (using vaul)
-- **DropdownMenu**: Menu that appears from a trigger element
-- **Form**: Form validation and submission handling
-- **HoverCard**: Card that appears when hovering over an element
-- **InputOTP**: One-time password input field
-- **Input**: Text input field
-- **Label**: Accessible form labels
-- **Menubar**: Horizontal menu with dropdowns
-- **NavigationMenu**: Accessible navigation component
-- **Pagination**: Controls for navigating between pages
-- **Popover**: Floating content triggered by a button
-- **Progress**: Progress indicator
-- **RadioGroup**: Group of radio inputs
-- **Resizable**: Resizable panels and interfaces
-- **ScrollArea**: Scrollable container with custom scrollbars
-- **Select**: Dropdown selection component
-- **Separator**: Visual divider between content
-- **Sheet**: Side-anchored dialog component
-- **Sidebar**: Navigation sidebar component
-- **Skeleton**: Loading placeholder
-- **Slider**: Input for selecting a value from a range
-- **Switch**: Toggle switch control
-- **Table**: Data table with headers and rows
-- **Tabs**: Tabbed interface component
-- **Textarea**: Multi-line text input
-- **Toast**: Toast notification component
-- **ToggleGroup**: Group of toggle buttons
-- **Toggle**: Two-state button
-- **Tooltip**: Informational text that appears on hover
-
-These components follow a consistent pattern using React's `forwardRef` and use the `cn()` utility for class name merging. Many are built on Radix UI primitives for accessibility and customized with Tailwind CSS.
+The project uses shadcn/ui components located in `@/components/ui`. These are unstyled, accessible components built with Radix UI and styled with Tailwind CSS. Components follow a consistent pattern using React's `forwardRef` and the `cn()` utility for class name merging.
 
 ### Nostr Implementation Guidelines
 
@@ -256,82 +207,7 @@ function useCustomHook() {
 
 ### Connecting to Multiple Nostr Relays
 
-By default, the `nostr` object from `useNostr` uses a pool configuration that reads data from 1 relay and publishes to all configured relays. However, you can connect to specific relays or groups of relays for more granular control:
-
-#### Single Relay Connection
-
-To read and publish from one specific relay, use `nostr.relay()` with a WebSocket URL:
-
-```typescript
-import { useNostr } from '@nostrify/react';
-
-function useSpecificRelay() {
-  const { nostr } = useNostr();
-
-  // Connect to a specific relay
-  const relay = nostr.relay('wss://relay.damus.io');
-
-  // Query from this specific relay only
-  const events = await relay.query([{ kinds: [1], limit: 20 }], { signal });
-
-  // Publish to this specific relay only
-  await relay.event({ kind: 1, content: 'Hello from specific relay!' });
-}
-```
-
-#### Multiple Relay Group
-
-To read and publish from a specific set of relays, use `nostr.group()` with an array of relay URLs:
-
-```typescript
-import { useNostr } from '@nostrify/react';
-
-function useRelayGroup() {
-  const { nostr } = useNostr();
-
-  // Create a group of specific relays
-  const relayGroup = nostr.group([
-    'wss://relay.damus.io',
-    'wss://relay.nostr.band',
-    'wss://nos.lol'
-  ]);
-
-  // Query from all relays in the group
-  const events = await relayGroup.query([{ kinds: [1], limit: 20 }], { signal });
-
-  // Publish to all relays in the group
-  await relayGroup.event({ kind: 1, content: 'Hello from relay group!' });
-}
-```
-
-#### API Consistency
-
-Both `relay` and `group` objects have the same API as the main `nostr` object, including:
-
-- `.query()` - Query events with filters
-- `.req()` - Create subscriptions
-- `.event()` - Publish events
-- All other Nostr protocol methods
-
-#### Use Cases
-
-**Single Relay (`nostr.relay()`):**
-- Testing specific relay behavior
-- Querying relay-specific content
-- Debugging connectivity issues
-- Working with specialized relays
-
-**Relay Group (`nostr.group()`):**
-- Querying from trusted relay sets
-- Publishing to specific communities
-- Load balancing across relay subsets
-- Geographic relay optimization
-
-**Default Pool (`nostr`):**
-- General application queries
-- Maximum reach for publishing
-- Default user experience
-- Simplified relay management
+By default, the `nostr` object from `useNostr` uses a pool configuration. For specific relays, use `nostr.relay(url)` or `nostr.group([url1, url2])`. These have the same API as the main `nostr` object (`.query()`, `.req()`, `.event()`).
 
 ### Query Nostr Data with `useNostr` and Tanstack Query
 
@@ -357,67 +233,7 @@ function usePosts() {
 
 ### Infinite Scroll for Feeds
 
-For feed-like interfaces, implement infinite scroll using TanStack Query's `useInfiniteQuery` with Nostr's timestamp-based pagination:
-
-```typescript
-import { useNostr } from '@nostrify/react';
-import { useInfiniteQuery } from '@tanstack/react-query';
-
-export function useGlobalFeed() {
-  const { nostr } = useNostr();
-
-  return useInfiniteQuery({
-    queryKey: ['global-feed'],
-    queryFn: async ({ pageParam, signal }) => {
-      const filter = { kinds: [1], limit: 20 };
-      if (pageParam) filter.until = pageParam;
-
-      const events = await nostr.query([filter], {
-        signal: AbortSignal.any([signal, AbortSignal.timeout(1500)])
-      });
-
-      return events;
-    },
-    getNextPageParam: (lastPage) => {
-      if (lastPage.length === 0) return undefined;
-      return lastPage[lastPage.length - 1].created_at - 1; // Subtract 1 since 'until' is inclusive
-    },
-    initialPageParam: undefined,
-  });
-}
-```
-
-Example usage with intersection observer for automatic loading:
-
-```tsx
-import { useInView } from 'react-intersection-observer';
-
-function GlobalFeed() {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useGlobalFeed();
-  const { ref, inView } = useInView();
-
-  useEffect(() => {
-    if (inView && hasNextPage) {
-      fetchNextPage();
-    }
-  }, [inView, hasNextPage, fetchNextPage]);
-
-  const posts = data?.pages.flat() || [];
-
-  return (
-    <div className="space-y-4">
-      {posts.map((post) => (
-        <PostCard key={post.id} post={post} />
-      ))}
-      {hasNextPage && (
-        <div ref={ref} className="py-4">
-          {isFetchingNextPage && <Skeleton className="h-20 w-full" />}
-        </div>
-      )}
-    </div>
-  );
-}
-```
+Use `useInfiniteQuery` with Nostr's timestamp-based pagination. Set `until` filter to `lastPage[lastPage.length - 1].created_at - 1` for `getNextPageParam`. Use `useInView` from `react-intersection-observer` to trigger loading.
 
 #### Efficient Query Design
 
@@ -461,54 +277,7 @@ The data may be transformed into a more appropriate format if needed, and multip
 
 #### Event Validation
 
-When querying events, if the event kind being returned has required tags or required JSON fields in the content, the events should be filtered through a validator function. This is not generally needed for kinds such as 1, where all tags are optional and the content is freeform text, but is especially useful for custom kinds as well as kinds with strict requirements.
-
-```typescript
-// Example validator function for NIP-52 calendar events
-function validateCalendarEvent(event: NostrEvent): boolean {
-  // Check if it's a calendar event kind
-  if (![31922, 31923].includes(event.kind)) return false;
-
-  // Check for required tags according to NIP-52
-  const d = event.tags.find(([name]) => name === 'd')?.[1];
-  const title = event.tags.find(([name]) => name === 'title')?.[1];
-  const start = event.tags.find(([name]) => name === 'start')?.[1];
-
-  // All calendar events require 'd', 'title', and 'start' tags
-  if (!d || !title || !start) return false;
-
-  // Additional validation for date-based events (kind 31922)
-  if (event.kind === 31922) {
-    // start tag should be in YYYY-MM-DD format for date-based events
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(start)) return false;
-  }
-
-  // Additional validation for time-based events (kind 31923)
-  if (event.kind === 31923) {
-    // start tag should be a unix timestamp for time-based events
-    const timestamp = parseInt(start);
-    if (isNaN(timestamp) || timestamp <= 0) return false;
-  }
-
-  return true;
-}
-
-function useCalendarEvents() {
-  const { nostr } = useNostr();
-
-  return useQuery({
-    queryKey: ['calendar-events'],
-    queryFn: async (c) => {
-      const signal = AbortSignal.any([c.signal, AbortSignal.timeout(1500)]);
-      const events = await nostr.query([{ kinds: [31922, 31923], limit: 20 }], { signal });
-
-      // Filter events through validator to ensure they meet NIP-52 requirements
-      return events.filter(validateCalendarEvent);
-    },
-  });
-}
-```
+For custom kinds with required tags or strict schemas, filter events through a validator function. Not needed for freeform kinds like kind 1.
 
 ### The `useAuthor` Hook
 
@@ -532,31 +301,7 @@ function Post({ event }: { event: NostrEvent }) {
 
 #### `NostrMetadata` type
 
-```ts
-/** Kind 0 metadata. */
-interface NostrMetadata {
-  /** A short description of the user. */
-  about?: string;
-  /** A URL to a wide (~1024x768) picture to be optionally displayed in the background of a profile screen. */
-  banner?: string;
-  /** A boolean to clarify that the content is entirely or partially the result of automation, such as with chatbots or newsfeeds. */
-  bot?: boolean;
-  /** An alternative, bigger name with richer characters than `name`. `name` should always be set regardless of the presence of `display_name` in the metadata. */
-  display_name?: string;
-  /** A bech32 lightning address according to NIP-57 and LNURL specifications. */
-  lud06?: string;
-  /** An email-like lightning address according to NIP-57 and LNURL specifications. */
-  lud16?: string;
-  /** A short name to be displayed for the user. */
-  name?: string;
-  /** An email-like Nostr address according to NIP-05. */
-  nip05?: string;
-  /** A URL to the user's avatar. */
-  picture?: string;
-  /** A web URL related in any way to the event author. */
-  website?: string;
-}
-```
+Import `NostrMetadata` from `@nostrify/nostrify` - it contains all kind 0 metadata fields (name, picture, about, nip05, etc.).
 
 ### The `useNostrPublish` Hook
 
@@ -616,138 +361,16 @@ The `LoginArea` component handles all the login-related UI and interactions, inc
 
 **Important**: Social applications should include a profile menu button in the main interface (typically in headers/navigation) to provide access to account settings, profile editing, and logout functionality. Don't only show `LoginArea` in logged-out states.
 
-### `npub`, `naddr`, and other Nostr addresses
+### NIP-19 Identifiers
 
-Nostr defines a set of bech32-encoded identifiers in NIP-19. Their prefixes and purposes:
+**Critical**: Handle NIP-19 identifiers at the **root level** of URLs (`/:nip19`), not nested paths. The project includes a `NIP19Page` component that decodes identifiers using `nip19.decode()`.
 
-- `npub1`: **public keys** - Just the 32-byte public key, no additional metadata
-- `nsec1`: **private keys** - Secret keys (should never be displayed publicly)
-- `note1`: **event IDs** - Just the 32-byte event ID (hex), no additional metadata
-- `nevent1`: **event pointers** - Event ID plus optional relay hints and author pubkey
-- `nprofile1`: **profile pointers** - Public key plus optional relay hints and petname
-- `naddr1`: **addressable event coordinates** - For parameterized replaceable events (kind 30000-39999)
-- `nrelay1`: **relay references** - Relay URLs (deprecated)
-
-#### Key Differences Between Similar Identifiers
-
-**`note1` vs `nevent1`:**
-- `note1`: Contains only the event ID (32 bytes) - specifically for kind:1 events (Short Text Notes) as defined in NIP-10
-- `nevent1`: Contains event ID plus optional relay hints and author pubkey - for any event kind
-- Use `note1` for simple references to text notes and threads
-- Use `nevent1` when you need to include relay hints or author context for any event type
-
-**`npub1` vs `nprofile1`:**
-- `npub1`: Contains only the public key (32 bytes)
-- `nprofile1`: Contains public key plus optional relay hints and petname
-- Use `npub1` for simple user references
-- Use `nprofile1` when you need to include relay hints or display name context
-
-#### NIP-19 Routing Implementation
-
-**Critical**: NIP-19 identifiers should be handled at the **root level** of URLs (e.g., `/note1...`, `/npub1...`, `/naddr1...`), NOT nested under paths like `/note/note1...` or `/profile/npub1...`.
-
-This project includes a boilerplate `NIP19Page` component that provides the foundation for handling all NIP-19 identifier types at the root level. The component is configured in the routing system and ready for AI agents to populate with specific functionality.
-
-**How it works:**
-
-1. **Root-Level Route**: The route `/:nip19` in `AppRouter.tsx` catches all NIP-19 identifiers
-2. **Automatic Decoding**: The `NIP19Page` component automatically decodes the identifier using `nip19.decode()`
-3. **Type-Specific Sections**: Different sections are rendered based on the identifier type:
-   - `npub1`/`nprofile1`: Profile section with placeholder for profile view
-   - `note1`: Note section with placeholder for kind:1 text note view
-   - `nevent1`: Event section with placeholder for any event type view
-   - `naddr1`: Addressable event section with placeholder for articles, marketplace items, etc.
-4. **Error Handling**: Invalid, vacant, or unsupported identifiers show 404 NotFound page
-5. **Ready for Population**: Each section includes comments indicating where AI agents should implement specific functionality
-
-**Example URLs that work automatically:**
-- `/npub1abc123...` - User profile (needs implementation)
-- `/note1def456...` - Kind:1 text note (needs implementation)
-- `/nevent1ghi789...` - Any event with relay hints (needs implementation)
-- `/naddr1jkl012...` - Addressable event (needs implementation)
-
-**Features included:**
-- Basic NIP-19 identifier decoding and routing
-- Type-specific sections for different identifier types
-- Error handling for invalid identifiers
-- Responsive container structure
-- Comments indicating where to implement specific views
-
-**Error handling:**
-- Invalid NIP-19 format → 404 NotFound
-- Unsupported identifier types (like `nsec1`) → 404 NotFound
-- Empty or missing identifiers → 404 NotFound
-
-To implement NIP-19 routing in your Nostr application:
-
-1. **The NIP19Page boilerplate is already created** - populate sections with specific functionality
-2. **The route is already configured** in `AppRouter.tsx`
-3. **Error handling is built-in** - all edge cases show appropriate 404 responses
-4. **Add specific components** for profile views, event displays, etc. as needed
-
-#### Event Type Distinctions
-
-**`note1` identifiers** are specifically for **kind:1 events** (Short Text Notes) as defined in NIP-10: "Text Notes and Threads". These are the basic social media posts in Nostr.
-
-**`nevent1` identifiers** can reference any event kind and include additional metadata like relay hints and author pubkey. Use `nevent1` when:
-- The event is not a kind:1 text note
-- You need to include relay hints for better discoverability
-- You want to include author context
-
-#### Use in Filters
-
-The base Nostr protocol uses hex string identifiers when filtering by event IDs and pubkeys. Nostr filters only accept hex strings.
-
-```ts
-// ❌ Wrong: naddr is not decoded
-const events = await nostr.query(
-  [{ ids: [naddr] }],
-  { signal }
-);
-```
-
-Corrected example:
-
-```ts
-// Import nip19 from nostr-tools
-import { nip19 } from 'nostr-tools';
-
-// Decode a NIP-19 identifier
-const decoded = nip19.decode(value);
-
-// Optional: guard certain types (depending on the use-case)
-if (decoded.type !== 'naddr') {
-  throw new Error('Unsupported Nostr identifier');
-}
-
-// Get the addr object
-const naddr = decoded.data;
-
-// ✅ Correct: naddr is expanded into the correct filter
-const events = await nostr.query(
-  [{
-    kinds: [naddr.kind],
-    authors: [naddr.pubkey],
-    '#d': [naddr.identifier],
-  }],
-  { signal }
-);
-```
-
-#### Implementation Guidelines
-
-1. **Always decode NIP-19 identifiers** before using them in queries
-2. **Use the appropriate identifier type** based on your needs:
-   - Use `note1` for kind:1 text notes specifically
-   - Use `nevent1` when including relay hints or for non-kind:1 events
-   - Use `naddr1` for addressable events (always includes author pubkey for security)
-3. **Handle different identifier types** appropriately:
-   - `npub1`/`nprofile1`: Display user profiles
-   - `note1`: Display kind:1 text notes specifically
-   - `nevent1`: Display any event with optional relay context
-   - `naddr1`: Display addressable events (articles, marketplace items, etc.)
-4. **Security considerations**: Always use `naddr1` for addressable events instead of just the `d` tag value, as `naddr1` contains the author pubkey needed to create secure filters
-5. **Error handling**: Gracefully handle invalid or unsupported NIP-19 identifiers with 404 responses
+**Key points:**
+- Always decode NIP-19 identifiers before using in queries (filters require hex strings)
+- `note1` = kind:1 events only; `nevent1` = any event kind with relay hints
+- `npub1` = pubkey only; `nprofile1` = pubkey + relay hints
+- `naddr1` = addressable events (includes author pubkey for security)
+- Invalid/unsupported identifiers → 404 NotFound
 
 ### Nostr Edit Profile
 
@@ -1019,12 +642,6 @@ To add custom fonts, follow these steps:
    }
    ```
 
-### Recommended Font Choices by Use Case
-
-- **Modern/Clean**: Inter Variable, Outfit Variable, or Manrope
-- **Professional/Corporate**: Roboto, Open Sans, or Source Sans Pro
-- **Creative/Artistic**: Poppins, Nunito, or Comfortaa
-- **Technical/Code**: JetBrains Mono, Fira Code, or Source Code Pro (for monospace)
 
 ### Theme System
 
@@ -1043,12 +660,6 @@ When users specify color schemes:
 - Apply colors consistently across components (buttons, links, accents)
 - Test both light and dark mode variants
 
-### Component Styling Patterns
-
-- Use `cn()` utility for conditional class merging
-- Follow shadcn/ui patterns for component variants
-- Implement responsive design with Tailwind breakpoints
-- Add hover and focus states for interactive elements
 
 ## Writing Tests vs Running Tests
 
@@ -1106,24 +717,23 @@ describe('MyComponent', () => {
 
 ## Validating Your Changes
 
-**CRITICAL**: After making any code changes, you must validate your work by running available validation tools.
+**Only validate when necessary** - don't run full validation for trivial changes.
 
-**Your task is not considered finished until the code successfully type-checks and builds without errors.**
+**Always validate when:**
+- Adding/modifying types, interfaces, or function signatures
+- Changing imports or dependencies
+- Modifying build configuration
+- Making changes that could affect compilation
 
-### Validation Priority Order
+**Skip validation for:**
+- Comments, formatting, or whitespace changes
+- Simple variable renames (without type changes)
+- Text-only changes in strings/comments
+- Obvious fixes that don't touch types
 
-Run available tools in this priority order:
+**When validation is needed, run in priority order:**
+1. **Build** (`npm run build`) - catches type errors and compilation issues
+2. **Linting** (`npx eslint`) - only if you suspect style issues or the build suggests it
+3. **Tests** - only if you modified test-related code or user explicitly requests
 
-1. **Type Checking** (Required): Ensure TypeScript compilation succeeds
-2. **Building/Compilation** (Required): Verify the project builds successfully
-3. **Linting** (Recommended): Check code style and catch potential issues
-4. **Tests** (If Available): Run existing test suite
-5. **Git Commit** (Required): Create a commit with your changes when finished
-
-**Minimum Requirements:**
-- Code must type-check without errors
-- Code must build/compile successfully
-- Fix any critical linting errors that would break functionality
-- Create a git commit when your changes are complete
-
-The validation ensures code quality and catches errors before deployment, regardless of the development environment.
+**Git commits**: Create commits when changes are complete. Only validate before committing if validation was needed.
