@@ -8,9 +8,12 @@
     --background: 30 33% 95%;
     --foreground: 0 0% 12%;
 
-    /* Light gray cards */
-    --card: 0 0% 100%;
+    /* Cards - slightly less bright than top header for hierarchy */
+    --card: 30 20% 98%;
     --card-foreground: 0 0% 12%;
+    
+    /* Header background - pure white for top nav bar (brightest) */
+    --header-background: 0 0% 100%;
 
     /* Popovers match cards */
     --popover: 0 0% 100%;
@@ -62,6 +65,9 @@
     /* Slightly lighter cards */
     --card: 0 0% 18%;
     --card-foreground: 0 0% 90%;
+    
+    /* Header background - slightly lighter than main background for distinction */
+    --header-background: 0 0% 17%;
 
     /* Popovers match cards */
     --popover: 0 0% 18%;

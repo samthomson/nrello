@@ -2003,7 +2003,7 @@ const BoardPage = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Board Header */}
-      <div className="border-b bg-background sticky top-0 z-10">
+      <div className="border-b bg-card sticky top-0 z-10">
         <div className="flex items-center justify-between p-4">
           <div>
             {isEditingBoardName ? (
@@ -2450,7 +2450,7 @@ const BoardPage = () => {
           {/* Full panel content when open */}
           {isActivityPanelOpen && (
             <div className="h-full flex flex-col">
-              <div className="p-4 border-b bg-background">
+              <div className="p-4 border-b bg-header">
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
                   <h2 className="text-xl font-bold">Activity</h2>

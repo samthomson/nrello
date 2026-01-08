@@ -94,7 +94,7 @@ export function NavBar() {
   };
 
   return (
-    <div className="border-b bg-background">
+    <div className="border-b bg-header">
       <div className="flex items-center justify-between h-16 px-4 w-full">
         <div className="flex items-center gap-6">
           <Link to="/" className="font-bold text-xl">
