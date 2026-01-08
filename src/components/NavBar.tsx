@@ -10,7 +10,9 @@ import {
   UserPlus,
   ChevronDown as ChevronDownIcon,
   AlertCircle,
-  Save
+  Save,
+  Sun,
+  Moon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,6 +24,7 @@ import {
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useTheme } from '@/hooks/useTheme';
 import { useFollows } from '@/hooks/useFollows';
 import { useAuthor } from '@/hooks/useAuthor';
 import { genUserName } from '@/lib/genUserName';
@@ -58,6 +61,7 @@ import { nip19 } from 'nostr-tools';
 export function NavBar() {
   const location = useLocation();
   const { user } = useCurrentUser();
+  const { theme, setTheme } = useTheme();
   const {
     currentOrganization,
     setCurrentOrganization,
@@ -159,6 +163,20 @@ export function NavBar() {
               <span>Saving...</span>
             </div>
           )}
+
+          {/* Theme toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+          </Button>
 
           <LoginArea className="max-w-60" />
         </div>
