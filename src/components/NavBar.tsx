@@ -1,16 +1,12 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  Users,
-  Settings,
   ChevronDown,
   Pencil,
   User,
   X,
   UserPlus,
   ChevronDown as ChevronDownIcon,
-  AlertCircle,
-  Save,
   Sun,
   Moon
 } from 'lucide-react';
@@ -57,9 +53,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { nip19 } from 'nostr-tools';
+import type { Organization } from '@/types';
 
 export function NavBar() {
-  const location = useLocation();
   const { user } = useCurrentUser();
   const { theme, setTheme } = useTheme();
   const {
@@ -67,7 +63,6 @@ export function NavBar() {
     setCurrentOrganization,
     organizations,
     createAndSelectOrganization,
-    updateOrganization,
     isSaving,
     isLoading: isLoadingOrganizations
   } = useOrganization();
@@ -233,7 +228,7 @@ export function NavBar() {
 }
 
 interface EditOrganizationFormProps {
-  currentOrg: any;
+  currentOrg: Organization;
   editOrgName: string;
   setEditOrgName: (name: string) => void;
   onSave: () => void;
@@ -269,7 +264,7 @@ function EditOrganizationForm({
     try {
       const decoded = nip19.decode(input);
       return decoded.type === 'npub';
-    } catch (e) {
+    } catch {
       return false;
     }
   };
@@ -281,7 +276,7 @@ function EditOrganizationForm({
         return decoded.data;
       }
       return null;
-    } catch (e) {
+    } catch {
       return null;
     }
   };

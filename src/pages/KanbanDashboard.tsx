@@ -19,6 +19,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import type { BoardSummary } from '@/types';
 
 const KanbanDashboard = () => {
   useSeoMeta({
@@ -190,7 +191,7 @@ const KanbanDashboard = () => {
   });
 
   // Sort boards based on user preference
-  const sortBoards = (boards: any[], sortBy: string) => {
+  const sortBoards = (boards: BoardSummary[], sortBy: string) => {
     const sortedBoards = [...boards];
 
     switch (sortBy) {

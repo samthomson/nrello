@@ -39,6 +39,7 @@ export default tseslint.config(
           "ignoreRestSiblings": true,
         },
       ],
+      "@typescript-eslint/no-explicit-any": "error",
       "custom/no-placeholder-comments": "error",
       "no-warning-comments": [
         "error",

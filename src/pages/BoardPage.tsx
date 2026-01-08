@@ -34,51 +34,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useNostrPublish } from '@/hooks/useNostrPublish';
 import { useOrganization } from '@/contexts/OrganizationContext';
-
-// Types for our Kanban data
-interface BoardMember {
-  id: string;
-  name: string;
-  role: 'admin' | 'member';
-}
-
-interface CardItem {
-  id: string;
-  dTag: string;
-  title: string;
-  description: string;
-  assignees: string[];
-  listId: string;
-  archived?: boolean;
-  deleted?: boolean;
-  createdAt?: number;
-  updatedAt?: number;
-}
-
-interface ListItem {
-  id: string;
-  dTag: string;
-  title: string;
-  cards: CardItem[];
-  boardId: string;
-}
-
-interface Board {
-  id: string;
-  dTag: string;
-  name: string;
-  description: string;
-  isPublic: boolean;
-  members: BoardMember[];
-  lists: ListItem[];
-}
-
-// Single unified ordering structure - no repetition
-// Each list has its ID and its cards in order
-type BoardLayout = Array<{
-  listId: string;
-  cardIds: string[];
-}>;
+import type { NostrEvent, NostrMetadata } from '@nostrify/nostrify';
+import type { Board, CardItem, ListItem, BoardLayout, Comment } from '@/types';
 
 // Helper: Convert layout to tags format
 // Each layout tag: ['layout', listId, cardId1, cardId2, ...]
@@ -106,13 +63,12 @@ const BoardPage = () => {
   const queryClient = useQueryClient();
   const [newCardTitle, setNewCardTitle] = useState('');
   const [activeListId, setActiveListId] = useState<string | null>(null);
-  const [isAddingCard, setIsAddingCard] = useState(false);
+  const [, setIsAddingCard] = useState(false);
   const [newListTitle, setNewListTitle] = useState('');
   const [showAddListInput, setShowAddListInput] = useState(false);
   const [selectedCard, setSelectedCard] = useState<{card: CardItem, list: ListItem} | null>(null);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
   const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -128,7 +84,7 @@ const BoardPage = () => {
   // Activity state (archived and deleted cards, and recent comments)
   const [archivedCards, setArchivedCards] = useState<CardItem[]>([]);
   const [deletedCards, setDeletedCards] = useState<CardItem[]>([]);
-  const [recentComments, setRecentComments] = useState<any[]>([]);
+  const [recentComments, setRecentComments] = useState<Comment[]>([]);
 
   // Assignee filtering
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
@@ -158,7 +114,6 @@ const BoardPage = () => {
   // Comment state
   const [newComment, setNewComment] = useState('');
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
-  const [comments, setComments] = useState<any[]>([]);
 
   // Initialize edited description when selected card changes
   useEffect(() => {
@@ -419,7 +374,7 @@ const BoardPage = () => {
           ]).then(orgEvents => {
             if (orgEvents.length > 0) {
               const orgEvent = orgEvents[0];
-              const memberPubkeys = orgEvent.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
+                  const memberPubkeys = orgEvent.tags.filter(tag => tag[0] === 'p').map(tag => tag[1]);
 
               // Fetch member profiles
               if (memberPubkeys.length > 0) {
@@ -432,11 +387,11 @@ const BoardPage = () => {
                 ]).then(profileEvents => {
                   const members = memberPubkeys.map(pubkey => {
                     const profileEvent = profileEvents.find(e => e.pubkey === pubkey);
-                    let profile: any = {};
+                    let profile: NostrMetadata = {};
                     if (profileEvent) {
                       try {
-                        profile = JSON.parse(profileEvent.content);
-                      } catch (e) {
+                        profile = JSON.parse(profileEvent.content) as NostrMetadata;
+                      } catch {
                         // Ignore parse errors
                       }
                     }
@@ -593,7 +548,7 @@ const BoardPage = () => {
     console.log('📋 Subscription filters:', JSON.stringify(subscriptionFilters, null, 2));
 
     // Create subscription
-    const subscription = nostr.req(subscriptionFilters, {
+    const _subscription = nostr.req(subscriptionFilters, {
       onevent: (event) => {
         console.log('🔥 REAL-TIME EVENT RECEIVED:', {
           kind: event.kind,
@@ -605,38 +560,26 @@ const BoardPage = () => {
         });
 
         // Handle different event types
+        const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
+        const belongsToBoard = aTag && aTag.includes(boardId);
+
         switch (event.kind) {
-          case 36173: // Board changes
+          case 36173:
             handleBoardUpdate(event);
             break;
-          case 36174: // List changes
-            // Manual filtering - check if this list belongs to our board
-            const listATag = event.tags.find((tag: any) => tag[0] === 'a')?.[1];
-            if (listATag && listATag.includes(boardId)) {
-              console.log('✅ List belongs to our board, processing...');
+          case 36174:
+            if (belongsToBoard) {
               handleListUpdate(event);
-            } else {
-              console.log('❌ List does not belong to our board, ignoring');
             }
             break;
-          case 36175: // Card changes
-            // Manual filtering - check if this card belongs to our board
-            const cardATag = event.tags.find((tag: any) => tag[0] === 'a')?.[1];
-            if (cardATag && cardATag.includes(boardId)) {
-              console.log('✅ Card belongs to our board, processing...');
+          case 36175:
+            if (belongsToBoard) {
               handleCardUpdate(event);
-            } else {
-              console.log('❌ Card does not belong to our board, ignoring');
             }
             break;
-          case 1111: // Comments
-            // Manual filtering - check if this comment is for our board
-            const commentATag = event.tags.find((tag: any) => tag[0] === 'a')?.[1];
-            if (commentATag && commentATag.includes(boardId)) {
-              console.log('✅ Comment belongs to our board, processing...');
+          case 1111:
+            if (belongsToBoard) {
               handleCommentUpdate(event);
-            } else {
-              console.log('❌ Comment does not belong to our board, ignoring');
             }
             break;
           default:
@@ -1474,34 +1417,26 @@ const BoardPage = () => {
     }
   };
 
-  // Real-time event handlers
-  const handleOrganizationUpdate = (event: any) => {
-    console.log('Organization updated:', event);
-    // Refresh organization data
-    queryClient.invalidateQueries({ queryKey: ['organizations'] });
-  };
-
-  const handleBoardUpdate = (event: any) => {
+  const handleBoardUpdate = (event: NostrEvent) => {
     console.log('Board updated:', event);
 
     // Parse board tags
-    const titleTag = event.tags.find((tag: any) => tag[0] === 'title');
-    const descriptionTag = event.tags.find((tag: any) => tag[0] === 'description');
-    const visibilityTag = event.tags.find((tag: any) => tag[0] === 'visibility');
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
+    const visibilityTag = event.tags.find((tag) => tag[0] === 'visibility');
 
     // Parse layout from tags
     const layout = tagsToLayout(event.tags);
 
     // Update board data in cache
-    queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
       const updatedBoard = {
         ...oldBoard,
         name: titleTag?.[1] || oldBoard.name,
         description: descriptionTag?.[1] || oldBoard.description,
-        isPublic: visibilityTag?.[1] === 'public',
-        updatedAt: event.created_at
+        isPublic: visibilityTag?.[1] === 'public'
       };
 
       // Update layout if present
@@ -1513,21 +1448,21 @@ const BoardPage = () => {
     });
   };
 
-  const handleListUpdate = (event: any) => {
-    const dTag = event.tags.find((tag: any) => tag[0] === 'd')?.[1];
-    const titleTag = event.tags.find((tag: any) => tag[0] === 'title');
-    const aTag = event.tags.find((tag: any) => tag[0] === 'a')?.[1];
+  const handleListUpdate = (event: NostrEvent) => {
+    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
 
     console.log('📋 HANDLING LIST UPDATE:', {
       id: event.id,
       dTag,
       title: titleTag?.[1],
       aTag,
-      belongsToThisBoard: aTag?.includes(boardId)
+      belongsToThisBoard: boardId && aTag?.includes(boardId)
     });
 
-    if (!dTag) {
-      console.warn('List event missing d tag');
+    if (!dTag || !boardId) {
+      console.warn('List event missing d tag or boardId');
       return;
     }
 
@@ -1537,10 +1472,10 @@ const BoardPage = () => {
       return;
     }
 
-    queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
-      const existingListIndex = oldBoard.lists.findIndex((list: any) => list.dTag === dTag);
+      const existingListIndex = oldBoard.lists.findIndex((list) => list.dTag === dTag);
 
       if (existingListIndex >= 0) {
         // Update existing list
@@ -1582,13 +1517,13 @@ const BoardPage = () => {
     });
   };
 
-  const handleCardUpdate = (event: any) => {
-    const dTag = event.tags.find((tag: any) => tag[0] === 'd')?.[1];
-    const listTag = event.tags.find((tag: any) => tag[0] === 'list');
-    const titleTag = event.tags.find((tag: any) => tag[0] === 'title');
-    const archivedTag = event.tags.find((tag: any) => tag[0] === 'archived');
-    const deletedTag = event.tags.find((tag: any) => tag[0] === 'deleted');
-    const aTag = event.tags.find((tag: any) => tag[0] === 'a')?.[1];
+  const handleCardUpdate = (event: NostrEvent) => {
+    const dTag = event.tags.find((tag) => tag[0] === 'd')?.[1];
+    const listTag = event.tags.find((tag) => tag[0] === 'list');
+    const titleTag = event.tags.find((tag) => tag[0] === 'title');
+    const archivedTag = event.tags.find((tag) => tag[0] === 'archived');
+    const deletedTag = event.tags.find((tag) => tag[0] === 'deleted');
+    const aTag = event.tags.find((tag) => tag[0] === 'a')?.[1];
 
     console.log('🃏 HANDLING CARD UPDATE:', {
       id: event.id,
@@ -1613,9 +1548,9 @@ const BoardPage = () => {
     }
 
     const listDTag = listTag[1];
-    const assigneeTags = event.tags.filter((tag: any) => tag[0] === 'p');
-    const assignees = assigneeTags.map((tag: any) => tag[1]);
-    const descriptionTag = event.tags.find((tag: any) => tag[0] === 'description');
+    const assigneeTags = event.tags.filter((tag) => tag[0] === 'p');
+    const assignees = assigneeTags.map((tag) => tag[1]);
+    const descriptionTag = event.tags.find((tag) => tag[0] === 'description');
 
     // Get description from tag
     const description = descriptionTag?.[1] || '';
@@ -1641,13 +1576,13 @@ const BoardPage = () => {
       });
 
       // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
+      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
         if (!oldBoard) return oldBoard;
         return {
           ...oldBoard,
-          lists: oldBoard.lists.map((list: any) => ({
+          lists: oldBoard.lists.map((list) => ({
             ...list,
-            cards: list.cards.filter((c: any) => c.dTag !== dTag)
+            cards: list.cards.filter((c) => c.dTag !== dTag)
           }))
         };
       });
@@ -1668,13 +1603,13 @@ const BoardPage = () => {
       });
 
       // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
+      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
         if (!oldBoard) return oldBoard;
         return {
           ...oldBoard,
-          lists: oldBoard.lists.map((list: any) => ({
+          lists: oldBoard.lists.map((list) => ({
             ...list,
-            cards: list.cards.filter((c: any) => c.dTag !== dTag)
+            cards: list.cards.filter((c) => c.dTag !== dTag)
           }))
         };
       });
@@ -1689,12 +1624,12 @@ const BoardPage = () => {
     }
 
     // Handle active cards
-    queryClient.setQueryData(['board', boardId], (oldBoard: any) => {
+    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
-      const updatedLists = oldBoard.lists.map((list: any) => {
+      const updatedLists = oldBoard.lists.map((list) => {
         if (list.dTag === listDTag) {
-          const existingCardIndex = list.cards.findIndex((c: any) => c.dTag === dTag);
+          const existingCardIndex = list.cards.findIndex((c) => c.dTag === dTag);
 
           if (existingCardIndex >= 0) {
             // Update existing card
@@ -1732,7 +1667,7 @@ const BoardPage = () => {
         // Remove card from other lists if it moved
         return {
           ...list,
-          cards: list.cards.filter((c: any) => c.dTag !== dTag)
+          cards: list.cards.filter((c) => c.dTag !== dTag)
         };
       });
 
@@ -1743,7 +1678,7 @@ const BoardPage = () => {
     });
   };
 
-  const handleCommentUpdate = (event: any) => {
+  const handleCommentUpdate = (event: NostrEvent) => {
     console.log('Comment updated:', event);
 
     // Refresh board comments for activity panel
@@ -1751,7 +1686,7 @@ const BoardPage = () => {
 
     // If this comment is for the currently selected card, refresh card comments
     if (selectedCard) {
-      const cardId = event.tags.find((tag: any) => tag[0] === 'e')?.[1];
+      const cardId = event.tags.find((tag) => tag[0] === 'e')?.[1];
       if (cardId === selectedCard.card.id) {
         queryClient.invalidateQueries({ queryKey: ['card-comments', selectedCard.card.id] });
       }
@@ -1798,7 +1733,7 @@ const BoardPage = () => {
     };
 
     // Add to cache immediately for instant feedback
-    queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: any[]) => {
+    queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: Comment[] | undefined) => {
       return [...(oldComments || []), optimisticComment];
     });
 
@@ -1817,11 +1752,11 @@ const BoardPage = () => {
         setIsSubmittingComment(false);
 
         // Replace the optimistic comment with the real one
-        queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: any[]) => {
+        queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: Comment[] | undefined) => {
           const updatedComments = (oldComments || []).map(comment => {
             if (comment.id === optimisticComment.id) {
               console.log('Replacing optimistic comment with real comment:', data);
-              return { ...data };
+              return { ...data } as Comment;
             }
             return comment;
           });
@@ -1836,7 +1771,7 @@ const BoardPage = () => {
         console.error('Failed to post comment:', error);
         setIsSubmittingComment(false);
         // Remove the optimistic comment on error
-        queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: any[]) => {
+        queryClient.setQueryData(['card-comments', selectedCard.card.id], (oldComments: Comment[] | undefined) => {
           return (oldComments || []).filter(comment => comment.id !== optimisticComment.id);
         });
       }
@@ -1914,10 +1849,8 @@ const BoardPage = () => {
 
     if (!board || !user || !boardId) return;
 
-    const now = Math.floor(Date.now() / 1000);
-
     // Create new layout based on drag operation
-    let newLayout = [...boardLayout];
+    const newLayout = [...boardLayout];
 
     if (type === 'LIST') {
       // Reordering lists
@@ -2520,14 +2453,14 @@ const BoardPage = () => {
                   <div className="space-y-3">
                     {/* Combine and sort all activity */}
                     {[
-                      ...archivedCards.map(card => ({...card, action: 'archived', timestamp: card.updatedAt || 0})),
-                      ...deletedCards.map(card => ({...card, action: 'deleted', timestamp: card.updatedAt || 0})),
-                      ...recentComments.map(comment => ({...comment, action: 'commented', timestamp: comment.created_at}))
+                      ...archivedCards.map(card => ({...card, action: 'archived' as const, timestamp: card.updatedAt || 0})),
+                      ...deletedCards.map(card => ({...card, action: 'deleted' as const, timestamp: card.updatedAt || 0})),
+                      ...recentComments.map(comment => ({...comment, action: 'commented' as const, timestamp: comment.created_at}))
                     ]
                       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
                       .slice(0, 30) // Limit to 30 most recent items
                       .map((item) => (
-                      <Card key={`${item.action}-${item.id || item.dTag}`} className={`hover:shadow-sm transition-all ${item.dTag && savingCards.has(item.dTag) ? 'opacity-50' : 'opacity-100'}`}>
+                      <Card key={`${item.action}-${item.id}${'dTag' in item ? `-${item.dTag}` : ''}`} className={`hover:shadow-sm transition-all ${'dTag' in item && savingCards.has(item.dTag) ? 'opacity-50' : 'opacity-100'}`}>
                         <CardContent className="p-3">
                           <div className="flex justify-between items-start">
                             <div className="flex items-start gap-2">
@@ -2580,15 +2513,15 @@ const BoardPage = () => {
                                 </div>
                               </div>
                             </div>
-                            {item.action === 'archived' && (
+                            {item.action === 'archived' && 'dTag' in item && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 className="text-xs"
                                 onClick={() => handleRestoreCard(item)}
-                                disabled={item.dTag && savingCards.has(item.dTag)}
+                                disabled={savingCards.has(item.dTag)}
                               >
-                                {item.dTag && savingCards.has(item.dTag) ? 'Restoring...' : 'Restore'}
+                                {savingCards.has(item.dTag) ? 'Restoring...' : 'Restore'}
                               </Button>
                             )}
                           </div>

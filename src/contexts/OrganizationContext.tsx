@@ -1,12 +1,12 @@
 import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { useOrganizations } from '@/hooks/useOrganizations';
-import { useFollows } from '@/hooks/useFollows';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import type { Organization } from '@/types';
 
 interface OrganizationContextType {
   currentOrganization: string | null;
   setCurrentOrganization: (orgId: string | null) => void;
-  organizations: any[];
+  organizations: Organization[];
   isLoading: boolean;
   isError: boolean;
   createOrganization: (name: string, members?: string[], onCreated?: (orgId: string) => void) => void;

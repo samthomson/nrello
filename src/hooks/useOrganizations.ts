@@ -2,17 +2,9 @@ import { useNostr } from "@nostrify/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "./useCurrentUser";
 import { useNostrPublish } from "./useNostrPublish";
+import type { Organization } from "@/types";
 
-export interface Organization {
-  id: string;
-  dTag: string;
-  name: string;
-  members: string[];
-  createdAt: number;
-  updatedAt: number;
-  isOwner: boolean;
-  pubkey: string;
-}
+export type { Organization };
 
 export function useOrganizations(startSavingOperation: () => void, completeSavingOperation: () => void) {
   const { nostr } = useNostr();
