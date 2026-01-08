@@ -8,9 +8,12 @@
     --background: 30 33% 95%;
     --foreground: 0 0% 12%;
 
-    /* Cards - slightly less bright than top header for hierarchy */
+    /* List columns - slightly less bright than top header for hierarchy */
     --card: 30 20% 98%;
     --card-foreground: 0 0% 12%;
+    
+    /* Task cards - pure white, lighter than list columns */
+    --card-item: 0 0% 100%;
     
     /* Header background - pure white for top nav bar (brightest) */
     --header-background: 0 0% 100%;
@@ -62,9 +65,12 @@
     --background: 0 0% 15%;
     --foreground: 0 0% 90%;
 
-    /* Slightly lighter cards */
+    /* List columns - slightly lighter than background */
     --card: 0 0% 18%;
     --card-foreground: 0 0% 90%;
+    
+    /* Task cards - lighter than list columns for distinction */
+    --card-item: 0 0% 20%;
     
     /* Header background - slightly lighter than main background for distinction */
     --header-background: 0 0% 17%;

@@ -2238,7 +2238,7 @@ const BoardPage = () => {
                                                 setIsCardModalOpen(true);
                                               }}
                                             >
-                                              <Card className={`hover:shadow-sm transition-shadow ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}>
+                                              <Card className={`bg-card-item hover:shadow-sm transition-shadow ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}>
                                                 <CardContent className="p-2">
                                                   <div className="flex-1">
                                                     <h3 className="font-medium text-sm mb-1">{card.title}</h3>
