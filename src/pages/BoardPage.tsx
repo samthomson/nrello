@@ -529,7 +529,7 @@ const BoardPage = () => {
     const layout = tagsToLayout(event.tags);
 
     // Update board data in cache
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+    queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
       const updatedBoard = {
@@ -558,21 +558,21 @@ const BoardPage = () => {
       dTag,
       title: titleTag?.[1],
       aTag,
-      belongsToThisBoard: boardId && aTag?.includes(boardId)
+      belongsToThisBoard: aTag?.includes(boardId!)
     });
 
-    if (!dTag || !boardId) {
-      console.warn('List event missing d tag or boardId');
+    if (!dTag) {
+      console.warn('List event missing d tag');
       return;
     }
 
     // Only process lists that belong to this board
-    if (!aTag || !aTag.includes(boardId)) {
+    if (!aTag || !aTag.includes(boardId!)) {
       console.log('List does not belong to this board, ignoring');
       return;
     }
 
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+    queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
       const existingListIndex = oldBoard.lists.findIndex((list) => list.dTag === dTag);
@@ -633,7 +633,7 @@ const BoardPage = () => {
       aTag,
       archived: archivedTag?.[1],
       deleted: deletedTag?.[1],
-      belongsToThisBoard: aTag?.includes(boardId)
+      belongsToThisBoard: aTag?.includes(boardId!)
     });
 
     if (!dTag || !listTag) {
@@ -642,7 +642,7 @@ const BoardPage = () => {
     }
 
     // Only process cards that belong to this board
-    if (!aTag || !aTag.includes(boardId)) {
+    if (!aTag || !aTag.includes(boardId!)) {
       console.log('Card does not belong to this board, ignoring');
       return;
     }
@@ -676,7 +676,7 @@ const BoardPage = () => {
       });
 
       // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
         if (!oldBoard) return oldBoard;
         return {
           ...oldBoard,
@@ -703,7 +703,7 @@ const BoardPage = () => {
       });
 
       // Remove from board
-      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
         if (!oldBoard) return oldBoard;
         return {
           ...oldBoard,
@@ -724,7 +724,7 @@ const BoardPage = () => {
     }
 
     // Handle active cards
-    queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+    queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
       if (!oldBoard) return oldBoard;
 
       const updatedLists = oldBoard.lists.map((list) => {
@@ -782,7 +782,7 @@ const BoardPage = () => {
     console.log('Comment updated:', event);
 
     // Refresh board comments for activity panel
-    queryClient.invalidateQueries({ queryKey: ['board-comments', boardId] });
+    queryClient.invalidateQueries({ queryKey: ['board-comments', boardId!] });
 
     // If this comment is for the currently selected card, refresh card comments
     if (selectedCard) {
@@ -991,7 +991,7 @@ const BoardPage = () => {
       };
 
       // Update UI immediately (optimistic update)
-      queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+      queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
         if (!oldBoard) return oldBoard;
 
         const updatedLists = oldBoard.lists.map(list => {
@@ -1056,7 +1056,7 @@ const BoardPage = () => {
           // Complete saving operation
           completeSavingOperation();
           // Update the card ID with the real event ID
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
 
             const updatedLists = oldBoard.lists.map(list => {
@@ -1092,7 +1092,7 @@ const BoardPage = () => {
           // Complete saving operation even on error
           completeSavingOperation();
           // Revert the optimistic update
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
 
             const updatedLists = oldBoard.lists.map(list => {
@@ -1156,7 +1156,7 @@ const BoardPage = () => {
         console.log('Board name updated successfully:', data);
         // Complete saving operation
         completeSavingOperation();
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
           return {
             ...oldBoard,
@@ -1201,7 +1201,7 @@ const BoardPage = () => {
               }
             });
           }
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
             return {
               ...oldBoard,
@@ -1288,7 +1288,7 @@ const BoardPage = () => {
         setDeletedCards(prev => [deletedCard, ...prev]);
 
         // Update local state - remove from board
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
           return {
             ...oldBoard,
@@ -1368,7 +1368,7 @@ const BoardPage = () => {
         setArchivedCards(prev => prev.filter(c => c.dTag !== card.dTag));
 
         // Add back to board
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
           return {
             ...oldBoard,
@@ -1445,7 +1445,7 @@ const BoardPage = () => {
         setArchivedCards(prev => [archivedCard, ...prev]);
 
         // Update local state - remove from board (archived cards are hidden)
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
           return {
             ...oldBoard,
@@ -1524,7 +1524,7 @@ const BoardPage = () => {
           });
         }
         // Update the query cache
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
           return {
             ...oldBoard,
@@ -1593,7 +1593,7 @@ const BoardPage = () => {
               }
             });
           }
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
             return {
               ...oldBoard,
@@ -1663,7 +1663,7 @@ const BoardPage = () => {
           // Clear add list UI
           setNewListTitle('');
           setShowAddListInput(false);
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
 
             const newList: ListItem = {
@@ -1820,7 +1820,7 @@ const BoardPage = () => {
       onSuccess: (data) => {
         console.log('List title updated successfully:', data);
         stopListSaving(listDtag);
-        queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+        queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
           if (!oldBoard) return oldBoard;
 
           const updatedLists = oldBoard.lists.map(list => {
@@ -1913,7 +1913,7 @@ const BoardPage = () => {
 
         if (movedCard && movedCardId) {
           // Update the card's list property in the board data
-          queryClient.setQueryData(['board', boardId], (oldBoard: Board | undefined) => {
+          queryClient.setQueryData(['board', boardId!], (oldBoard: Board | undefined) => {
             if (!oldBoard) return oldBoard;
 
             return {
