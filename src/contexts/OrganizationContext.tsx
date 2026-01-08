@@ -11,7 +11,7 @@ interface OrganizationContextType {
   isError: boolean;
   createOrganization: (name: string, members?: string[], onCreated?: (orgId: string) => void) => void;
   createAndSelectOrganization: (name: string) => void;
-  updateOrganization: (dTag: string, name: string) => void;
+  updateOrganization: (dTag: string, name: string, members?: string[]) => void;
   isSaving: boolean;
   pendingOperations: number;
   startSavingOperation: () => void;

@@ -183,13 +183,15 @@ export function NavBar() {
           <DialogHeader>
             <DialogTitle>Edit Organization</DialogTitle>
           </DialogHeader>
-          <EditOrganizationForm
-            currentOrg={currentOrg}
-            editOrgName={editOrgName}
-            setEditOrgName={setEditOrgName}
-            onSave={saveOrgEdit}
-            onCancel={() => setIsEditingOrg(false)}
-          />
+          {currentOrg && (
+            <EditOrganizationForm
+              currentOrg={currentOrg}
+              editOrgName={editOrgName}
+              setEditOrgName={setEditOrgName}
+              onSave={saveOrgEdit}
+              onCancel={() => setIsEditingOrg(false)}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
