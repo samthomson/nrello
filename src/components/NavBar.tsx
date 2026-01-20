@@ -80,6 +80,7 @@ export function NavBar() {
 
   const currentOrg = organizations.find(org => org.dTag === currentOrganization);
   const currentBoard = boards.find(board => board.dTag === boardId);
+  const shouldShowBoardSelector = currentOrg && !isLoadingBoards && (currentBoard || boards.length > 0);
 
   const handleEditOrg = () => {
     if (currentOrg) {
@@ -160,8 +161,8 @@ export function NavBar() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Board Selector - shows when there are boards */}
-              {currentOrg && !isLoadingBoards && boards.length > 0 && (
+              {/* Board Selector - shows when on a board page or when there are boards */}
+              {shouldShowBoardSelector && (
                 <>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   <DropdownMenu>

@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ScrollToTop } from "./components/ScrollToTop";
-import { NavBar } from "./components/NavBar";
+import { Layout } from "./components/Layout";
 
 import KanbanDashboard from "./pages/KanbanDashboard";
 import BoardPage from "./pages/BoardPage";
@@ -11,14 +11,13 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <NavBar />
       <Routes>
-        <Route path="/" element={<KanbanDashboard />} />
-        <Route path="/board/:boardId" element={<BoardPage />} />
+        <Route path="/" element={<Layout><KanbanDashboard /></Layout>} />
+        <Route path="/board/:boardId" element={<Layout><BoardPage /></Layout>} />
         {/* NIP-19 route for npub1, note1, naddr1, nevent1, nprofile1 */}
-        <Route path="/:nip19" element={<NIP19Page />} />
+        <Route path="/:nip19" element={<Layout><NIP19Page /></Layout>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<Layout><NotFound /></Layout>} />
       </Routes>
     </BrowserRouter>
   );
