@@ -2357,7 +2357,10 @@ const BoardPage = () => {
                                         <div className="flex gap-2">
                                           <Button
                                             size="sm"
-                                            onClick={() => handleAddCard(list.dTag)}
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              handleAddCard(list.dTag);
+                                            }}
                                             disabled={!newCardTitle.trim() || !user}
                                             className="text-sm px-3"
                                           >
@@ -2366,7 +2369,8 @@ const BoardPage = () => {
                                           <Button
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => {
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
                                               setActiveListId(null);
                                               setNewCardTitle('');
                                             }}
