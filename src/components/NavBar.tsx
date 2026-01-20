@@ -1,14 +1,16 @@
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   ChevronDown,
+  ChevronRight,
   Pencil,
   User,
   X,
   UserPlus,
   ChevronDown as ChevronDownIcon,
   Sun,
-  Moon
+  Moon,
+  LayoutGrid
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -20,6 +22,7 @@ import {
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { LoginArea } from '@/components/auth/LoginArea';
 import { useOrganization } from '@/hooks/useOrganization';
+import { useBoards } from '@/hooks/useBoards';
 import { useTheme } from '@/hooks/useTheme';
 import { useFollows } from '@/hooks/useFollows';
 import { useAuthor } from '@/hooks/useAuthor';
@@ -58,6 +61,8 @@ import type { Organization } from '@/types';
 export function NavBar() {
   const { user } = useCurrentUser();
   const { theme, setTheme } = useTheme();
+  const { boardId } = useParams<{ boardId: string }>();
+  const navigate = useNavigate();
   const {
     currentOrganization,
     setCurrentOrganization,
@@ -66,6 +71,7 @@ export function NavBar() {
     isSaving,
     isLoading: isLoadingOrganizations
   } = useOrganization();
+  const { boards, isLoading: isLoadingBoards } = useBoards();
 
   const [isEditingOrg, setIsEditingOrg] = useState(false);
   const [editOrgName, setEditOrgName] = useState('');
@@ -73,6 +79,7 @@ export function NavBar() {
   const [newOrgName, setNewOrgName] = useState('');
 
   const currentOrg = organizations.find(org => org.dTag === currentOrganization);
+  const currentBoard = boards.find(board => board.dTag === boardId);
 
   const handleEditOrg = () => {
     if (currentOrg) {
@@ -102,10 +109,11 @@ export function NavBar() {
           </Link>
 
           {!isLoadingOrganizations && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              {/* Organization Selector */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-1 px-2">
+                  <Button variant="ghost" className="flex items-center gap-1 px-2 cursor-pointer">
                     {currentOrg ? currentOrg.name : 'Select Organization'}
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -116,33 +124,71 @@ export function NavBar() {
                     .map(org => (
                       <DropdownMenuItem
                         key={org.dTag}
-                        onSelect={() => setCurrentOrganization(org.dTag)}
-                        className={org.dTag === currentOrganization ? 'bg-muted' : ''}
+                        onSelect={() => {
+                          // Only do something if switching to a different org
+                          if (org.dTag !== currentOrganization) {
+                            setCurrentOrganization(org.dTag);
+                            // Always navigate to dashboard when switching orgs
+                            navigate('/');
+                          }
+                        }}
+                        className={`cursor-pointer ${org.dTag === currentOrganization ? 'bg-muted' : ''}`}
                       >
                         {org.name}
                       </DropdownMenuItem>
                     ))}
                   <DropdownMenuSeparator />
+                  {/* Edit current org - only show if user is a member */}
+                  {currentOrg && user && currentOrg.members.includes(user.pubkey) && (
+                    <DropdownMenuItem
+                      onSelect={handleEditOrg}
+                      className="cursor-pointer"
+                    >
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit Organization
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     onSelect={() => {
                       setNewOrgName('');
                       setIsCreatingOrg(true);
                     }}
+                    className="cursor-pointer"
                   >
                     Create New Organization
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {currentOrg && user && currentOrg.members.includes(user.pubkey) && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleEditOrg}
-                  className="h-6 w-6"
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
+              {/* Board Selector - shows when there are boards */}
+              {currentOrg && !isLoadingBoards && boards.length > 0 && (
+                <>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="flex items-center gap-1 px-2 cursor-pointer">
+                        {currentBoard ? currentBoard.name : 'Select Board'}
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {boards.map(board => (
+                        <DropdownMenuItem
+                          key={board.dTag}
+                          onSelect={() => navigate(`/board/${board.dTag}`)}
+                          className={`cursor-pointer ${board.dTag === boardId ? 'bg-muted' : ''}`}
+                        >
+                          {board.name}
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onSelect={() => navigate('/')} className="cursor-pointer">
+                        <LayoutGrid className="h-4 w-4 mr-2" />
+                        All Boards
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </>
               )}
             </div>
           )}
