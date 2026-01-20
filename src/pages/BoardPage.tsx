@@ -2259,7 +2259,7 @@ const BoardPage = () => {
                                 )}
                               </CardTitle>
                             </CardHeader>
-                            <CardContent className="py-1 px-3">
+                            <CardContent className="pt-1 pb-2 px-3">
                               <Droppable droppableId={list.dTag} type="CARD">
                                 {(provided) => (
                                   <div
