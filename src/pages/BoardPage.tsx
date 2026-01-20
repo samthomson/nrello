@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useSeoMeta } from '@unhead/react';
 import { Button } from '@/components/ui/button';
@@ -101,6 +101,12 @@ const BoardPage = () => {
   // Subscription status tracking
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null);
+
+  // Drag-to-scroll state
+  const boardScrollRef = useRef<HTMLDivElement>(null);
+  const [isDraggingBoard, setIsDraggingBoard] = useState(false);
+  const [dragStartX, setDragStartX] = useState(0);
+  const [scrollStartX, setScrollStartX] = useState(0);
 
   // Helper functions to manage overall board saving state
   const startSavingOperation = () => {
@@ -1976,6 +1982,49 @@ const BoardPage = () => {
     updateBoardWithLayout(newLayout, cardIdForSameLisMove);
   };
 
+  // Drag-to-scroll handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Only start drag if clicking on the board background (not on cards, lists, buttons, etc.)
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('.card-item') ||
+      target.closest('button') ||
+      target.closest('input') ||
+      target.closest('textarea') ||
+      target.closest('[role="button"]')
+    ) {
+      return;
+    }
+
+    setIsDraggingBoard(true);
+    setDragStartX(e.pageX);
+    setScrollStartX(boardScrollRef.current?.scrollLeft || 0);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingBoard || !boardScrollRef.current) return;
+
+    const dx = e.pageX - dragStartX;
+    boardScrollRef.current.scrollLeft = scrollStartX - dx;
+  }, [isDraggingBoard, dragStartX, scrollStartX]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingBoard(false);
+  }, []);
+
+  // Add/remove mouse event listeners
+  useEffect(() => {
+    if (isDraggingBoard) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDraggingBoard, handleMouseMove, handleMouseUp]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -2131,7 +2180,11 @@ const BoardPage = () => {
       </div>
 
       {/* Kanban Board */}
-      <div className="p-4 overflow-x-auto relative h-[calc(100vh-136px)]">
+      <div 
+        ref={boardScrollRef}
+        onMouseDown={handleMouseDown}
+        className={`p-4 overflow-x-auto relative h-[calc(100vh-136px)] ${isDraggingBoard ? 'cursor-grabbing select-none' : 'cursor-grab'}`}
+      >
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="board" direction="horizontal" type="LIST">
             {(provided) => (
@@ -2151,12 +2204,12 @@ const BoardPage = () => {
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
-                          {...provided.dragHandleProps}
-                          className={`relative transition-opacity ${savingLists.has(list.dTag) ? 'opacity-50' : 'opacity-100'} ${snapshot.isDragging ? 'cursor-grabbing' : 'cursor-move'}`}
+                          className={`relative transition-opacity ${savingLists.has(list.dTag) ? 'opacity-50' : 'opacity-100'}`}
                         >
                           <Card className={`w-72 flex-shrink-0 ${snapshot.isDragging ? 'shadow-lg ring-2 ring-primary/20' : ''}`}>
                             <CardHeader
-                              className="pb-1 pt-3 px-3"
+                              {...provided.dragHandleProps}
+                              className={`pb-1 pt-3 px-3 ${snapshot.isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                             >
                               <CardTitle className="text-base font-semibold">
                                 {editingListId === list.dTag ? (
