@@ -2334,26 +2334,30 @@ const BoardPage = () => {
 
                                     {activeListId === list.dTag ? (
                                       <div className="space-y-2">
-                                        <Input
-                                          placeholder="Enter card title..."
-                                          value={newCardTitle}
-                                          onChange={(e) => setNewCardTitle(e.target.value)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') handleAddCard(list.dTag);
-                                            if (e.key === 'Escape') {
-                                              setIsAddingCard(false);
-                                              setActiveListId(null);
-                                              setNewCardTitle('');
-                                            }
-                                          }}
-                                          onBlur={() => {
-                                            setIsAddingCard(false);
-                                            setActiveListId(null);
-                                            setNewCardTitle('');
-                                          }}
-                                          autoFocus
-                                          className="text-sm"
-                                        />
+                                        <Card className="bg-card-item">
+                                          <CardContent className="p-2">
+                                            <Input
+                                              placeholder="Enter card title..."
+                                              value={newCardTitle}
+                                              onChange={(e) => setNewCardTitle(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleAddCard(list.dTag);
+                                                if (e.key === 'Escape') {
+                                                  setIsAddingCard(false);
+                                                  setActiveListId(null);
+                                                  setNewCardTitle('');
+                                                }
+                                              }}
+                                              onBlur={() => {
+                                                setIsAddingCard(false);
+                                                setActiveListId(null);
+                                                setNewCardTitle('');
+                                              }}
+                                              autoFocus
+                                              className="text-sm border-0 p-0 h-auto focus-visible:ring-0 focus-visible:ring-offset-0 bg-transparent"
+                                            />
+                                          </CardContent>
+                                        </Card>
                                         <div className="flex gap-2">
                                           <Button
                                             size="sm"
